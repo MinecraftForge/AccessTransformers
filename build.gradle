@@ -103,22 +103,28 @@ repositories {
 
 dependencies {
     testCompile "org.junit.jupiter:junit-jupiter-api:5.0.2"
-    testCompile(group: 'org.powermock', name: 'powermock-core', version: '1.7.3')
+    testCompile 'org.powermock:powermock-core:1.7.3'
     testCompile 'cpw.mods:modlauncher:0.1-SNAPSHOT'
-    testCompileOnly sourceSets.mlservice.output
+    testCompile sourceSets.mlservice.output
+    testCompileOnly 'org.apiguardian:apiguardian-api:1.0.0'
+
     testRuntime "org.junit.jupiter:junit-jupiter-engine:5.0.2"
-    testRuntime group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.10.0'
+    testRuntime 'org.apache.logging.log4j:log4j-core:2.10.0'
     testRuntime sourceSets.testJars.runtimeClasspath
+
     compile 'org.antlr:antlr4-runtime:4.7.1'
     compile 'org.ow2.asm:asm:6.0'
     compile 'org.ow2.asm:asm-commons:6.0'
     compile 'org.ow2.asm:asm-tree:6.0'
     compile 'net.sf.jopt-simple:jopt-simple:5.0.4'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.10.0'
+    compile 'org.apache.logging.log4j:log4j-api:2.10.0'
     compile 'cpw.mods:modlauncher:0.1-SNAPSHOT:api'
+    compile sourceSets.antlr4.output
+
     mlserviceCompile 'cpw.mods:modlauncher:0.1-SNAPSHOT:api'
     mlserviceCompileOnly sourceSets.main.output
-    antlr4 'org.antlr:antlr4:4.7.1'
+
+    antlr4Compile 'org.antlr:antlr4:4.7.1'
 }
 // Shadow Jar with antlr embedded
 shadowJar {
@@ -191,7 +197,7 @@ generateGrammarSource {
     outputs.dir file(antlr.destinationDir)
     def grammars = fileTree(antlr.antlrSource).include('**/*.g4')
     main = 'org.antlr.v4.Tool'
-    classpath = configurations.antlr4
+    classpath = configurations.antlr4Compile
     def pkg = antlr.grammarpackage.replaceAll("\\.", "/")
     args = ["-o", "${antlr.destinationDir}/${pkg}", "-visitor", "-package", antlr.grammarpackage, grammars.files].flatten()
 }
