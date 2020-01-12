@@ -132,6 +132,7 @@ build.dependsOn testsJar
 build.dependsOn mlserviceJar
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven {
         name = 'forge'
@@ -142,7 +143,7 @@ repositories {
 dependencies {
     testImplementation('org.junit.jupiter:junit-jupiter-api:5.5.+')
     testImplementation('org.powermock:powermock-core:2.0+')
-    testImplementation('cpw.mods:modlauncher:5.0.+')
+    testImplementation('cpw.mods:modlauncher:5.1.+')
     testImplementation('com.google.code.gson:gson:2.8.6')
     testCompileOnly(sourceSets.mlservice.output)
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.5.+')
@@ -156,10 +157,10 @@ dependencies {
     implementation('org.ow2.asm:asm-tree:7.2')
     implementation('org.apache.logging.log4j:log4j-api:2.12.+')
     implementation('org.apache.logging.log4j:log4j-core:2.12.+')
-    implementation('cpw.mods:modlauncher:5.0.+:api')
-    implementation('cpw.mods:modlauncher:5.0.+')
-    mlserviceImplementation('cpw.mods:modlauncher:5.0.+:api')
-    mlserviceImplementation('cpw.mods:modlauncher:5.0.+')
+    implementation('cpw.mods:modlauncher:5.1.+:api')
+    implementation('cpw.mods:modlauncher:5.1.+')
+    mlserviceImplementation('cpw.mods:modlauncher:5.1.+:api')
+    mlserviceImplementation('cpw.mods:modlauncher:5.1.+')
     mlserviceImplementation(sourceSets.main.output)
     antlr4Compile('org.antlr:antlr4:4.7.2')
 }
