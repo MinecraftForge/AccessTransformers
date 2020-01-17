@@ -29,8 +29,8 @@ public class AccessTransformerService implements ILaunchPluginService {
     }
 
     @Override
-    public ComputeLevel processClassNew(Phase phase, ClassNode classNode, Type classType, String reason) {
-        return AccessTransformerEngine.INSTANCE.transform(classNode, classType) ? ComputeLevel.SIMPLE_REWRITE : ComputeLevel.NO_REWRITE;
+    public int processClassNew(Phase phase, ClassNode classNode, Type classType, String reason) {
+        return AccessTransformerEngine.INSTANCE.transform(classNode, classType) ? ComputeFlags.SIMPLE_REWRITE : ComputeFlags.NO_REWRITE;
     }
 
     private static final EnumSet<Phase> YAY = EnumSet.of(Phase.BEFORE);
