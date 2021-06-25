@@ -11,7 +11,7 @@ pipeline {
     environment {
         GRADLE_ARGS = '-Dorg.gradle.daemon.idletimeout=5000'
         DISCORD_WEBHOOK = credentials('forge-discord-jenkins-webhook')
-        DISCORD_PREFIX = "Job: AccessTransformer Branch: ${BRANCH_NAME} Build: #${BUILD_NUMBER}"
+        DISCORD_PREFIX = "Job: AccessTransformers Branch: ${BRANCH_NAME} Build: #${BUILD_NUMBER}"
         JENKINS_HEAD = 'https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png'
     }
 

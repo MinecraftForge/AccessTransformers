@@ -1,5 +1,13 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+    }
+    dependencies {
+        classpath 'net.minecraftforge:GradleUtils:1.+'
+    }
+}
+
 plugins {
-    id 'org.ajoberstar.grgit' version '4.1.0'
     id 'com.github.johnrengelman.shadow' version '6.1.0'
     id 'com.github.ben-manes.versions' version '0.39.0'
     id 'antlr'
@@ -10,12 +18,13 @@ apply plugin: 'maven-publish'
 apply plugin: 'java-library'
 apply plugin: 'eclipse'
 apply plugin: 'org.javamodularity.moduleplugin'
+apply plugin: 'net.minecraftforge.gradleutils'
 
 group 'net.minecraftforge'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(16)
 
-version = grgit.describe(longDescr: true).split('-').with { "${it[0]}.${it[1]}" }
+version = gradleutils.getTagOffsetVersion()
 
 def isNonStable = { String version ->
     def stableKeyword = ['RELEASE', 'FINAL', 'GA'].any { it -> version.toUpperCase().contains(it) }
@@ -46,22 +55,22 @@ jar.manifest = manifest {
                 'Specification-Vendor': 'forge',
                 'Specification-Version': '1', // Currently version 1 of the accesstransformer specification
                 'Implementation-Title': project.name,
-                'Implementation-Version': "${project.version}+${System.getenv('BUILD_NUMBER')?:0}+${grgit.branch.current().getName()}.${grgit.head().abbreviatedId}",
+                'Implementation-Version': "${project.version}+${System.getenv('BUILD_NUMBER')?:0}+${gradleutils.gitInfo.branch}.${gradleutils.gitInfo.abbreviatedId}",
                 'Implementation-Vendor': 'forge',
                 'Implementation-Timestamp': java.time.Instant.now().toString(),
-                'Git-Commit': grgit.head().abbreviatedId,
-                'Git-Branch': grgit.branch.current().getName(),
+                'Git-Commit': gradleutils.gitInfo.abbreviatedId,
+                'Git-Branch': gradleutils.gitInfo.branch,
                 'Build-Number': "${System.getenv('BUILD_NUMBER')?:0}" ],
             'net/minecraftforge/accesstransformer/service/')
     attributes(['Specification-Title': 'accesstransformers',
                 'Specification-Vendor': 'Forge',
                 'Specification-Version': '1', // Currently version 1 of the accesstransformer specification
                 'Implementation-Title': project.name,
-                'Implementation-Version': "${project.version}+${System.getenv('BUILD_NUMBER')?:0}+${grgit.branch.current().getName()}.${grgit.head().abbreviatedId}",
+                'Implementation-Version': "${project.version}+${System.getenv('BUILD_NUMBER')?:0}+${gradleutils.gitInfo.branch}.${gradleutils.gitInfo.abbreviatedId}",
                 'Implementation-Vendor': 'forge',
                 'Implementation-Timestamp': java.time.Instant.now().toString(),
-                'Git-Commit': grgit.head().abbreviatedId,
-                'Git-Branch': grgit.branch.current().getName(),
+                'Git-Commit': gradleutils.gitInfo.abbreviatedId,
+                'Git-Branch': gradleutils.gitInfo.branch,
                 'Build-Number': "${System.getenv('BUILD_NUMBER')?:0}" ],
             'net/minecraftforge/accesstransformer/')
 }
