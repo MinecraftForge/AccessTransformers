@@ -76,12 +76,13 @@ jar.manifest = manifest {
 }
 
 task testsJar(type: Jar) {
-    classifier 'testsjar'
+    archiveClassifier = 'testsjar'
     from sourceSets.testJars.output
 }
 
 task sourcesJar(type: Jar) {
-    classifier 'sources'
+    dependsOn generateGrammarSource
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
