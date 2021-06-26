@@ -1,24 +1,15 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net/' }
-    }
-    dependencies {
-        classpath 'net.minecraftforge:GradleUtils:1.+'
-    }
-}
-
 plugins {
     id 'com.github.johnrengelman.shadow' version '6.1.0'
     id 'com.github.ben-manes.versions' version '0.39.0'
     id 'antlr'
     id 'org.javamodularity.moduleplugin' version '1.8.3' apply false
+    id 'net.minecraftforge.gradleutils' version '1.+'
 }
 
 apply plugin: 'maven-publish'
 apply plugin: 'java-library'
 apply plugin: 'eclipse'
 apply plugin: 'org.javamodularity.moduleplugin'
-apply plugin: 'net.minecraftforge.gradleutils'
 
 group 'net.minecraftforge'
 
