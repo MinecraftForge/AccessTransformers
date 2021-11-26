@@ -16,6 +16,7 @@ group 'net.minecraftforge'
 java.toolchain.languageVersion = JavaLanguageVersion.of(16)
 
 version = gradleutils.getTagOffsetVersion()
+println('Version: ' + version)
 
 def isNonStable = { String version ->
     def stableKeyword = ['RELEASE', 'FINAL', 'GA'].any { it -> version.toUpperCase().contains(it) }
@@ -35,10 +36,12 @@ test {
 
 sourceSets {
     testJars
+    modlauncherImpl
 }
 
 compileJava {
     dependsOn generateGrammarSource
+    targetCompatibility = sourceCompatibility = 1.8
 }
 
 jar.manifest = manifest {
@@ -94,6 +97,7 @@ dependencies {
     testImplementation('org.powermock:powermock-core:2.0+')
     testImplementation('cpw.mods:modlauncher:9.0.4')
     testImplementation('com.google.code.gson:gson:2.8.6')
+    testImplementation(sourceSets.modlauncherImpl.output)
     testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.7.+')
     testRuntimeOnly(sourceSets.testJars.runtimeClasspath)
     implementation('org.antlr:antlr4-runtime:4.9.1')
@@ -103,13 +107,18 @@ dependencies {
     implementation('org.ow2.asm:asm-tree:9.1')
     implementation('org.apache.logging.log4j:log4j-api:2.11.+')
     implementation('org.apache.logging.log4j:log4j-core:2.11.+')
-    implementation('cpw.mods:modlauncher:9.0.4')
+    modlauncherImplImplementation('cpw.mods:modlauncher:9.0.4')
+    modlauncherImplImplementation(sourceSets.main.output)
     antlr('org.antlr:antlr4:4.9.1')
 }
 
+jar {
+    from sourceSets.modlauncherImpl.output
+}
 
 shadowJar {
     classifier 'fatjar'
+    exclude '**/Log4j2Plugins.dat'
     manifest {
         inheritFrom jar.manifest
         attributes('Main-Class': 'net.minecraftforge.accesstransformer.TransformerProcessor')
