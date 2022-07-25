@@ -10,7 +10,7 @@ public abstract class Target<T> {
 
     public Target(String className) {
         this.className = className;
-        this.type = Type.getType("L" + className.replaceAll("\\.", "/") + ";");
+        this.type = Type.getType("L" + className.replace('.', '/') + ";");
     }
 
     public TargetType getType() {

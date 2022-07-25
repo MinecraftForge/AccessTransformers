@@ -108,7 +108,7 @@ public class TransformerProcessor {
                                     final ClassReader classReader = new ClassReader(is);
                                     final ClassNode cn = new ClassNode();
                                     classReader.accept(cn, 0);
-                                    final Type type = Type.getType('L'+cn.name.replaceAll("\\.","/")+';');
+                                    final Type type = Type.getType('L'+cn.name.replace('.', '/')+';');
                                     if (AccessTransformerEngine.INSTANCE.handlesClass(type)) {
                                         LOGGER.debug(AXFORM_MARKER,"Transforming class {}", type);
                                         AccessTransformerEngine.INSTANCE.transform(cn, type);

@@ -15,8 +15,8 @@ public class MethodTarget extends Target<MethodNode> {
     public MethodTarget(final String className, final String methodName, final List<String> arguments, final String returnValue) {
         super(className);
         this.methodName = methodName;
-        this.arguments = arguments.stream().map(s->s.replaceAll("\\.", "/")).map(Type::getType).collect(Collectors.toList());
-        this.returnType = Type.getType(returnValue.replaceAll("\\.","/"));
+        this.arguments = arguments.stream().map(s->s.replace('.', '/')).map(Type::getType).collect(Collectors.toList());
+        this.returnType = Type.getType(returnValue.replace('.', '/'));
         this.targetName = methodName+'('+arguments.stream().collect(Collectors.joining())+')'+returnType;
     }
 
