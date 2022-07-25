@@ -18,6 +18,7 @@ public class AccessTransformerList {
     private static final Logger LOGGER = LogManager.getLogger("AXFORM");
     private static final Marker AXFORM_MARKER = MarkerManager.getMarker("AXFORM");
     private final Map<Target<?>, AccessTransformer> accessTransformers = new HashMap<>();
+    private final Set<Type> validAtTypes = new HashSet<>();
     private INameHandler nameHandler = new IdentityNameHandler();
 
     public void loadFromResource(final String resourceName) throws URISyntaxException, IOException {
@@ -35,8 +36,10 @@ public class AccessTransformerList {
         final AtParser.FileContext file = parser.file();
         final AccessTransformVisitor accessTransformVisitor = new AccessTransformVisitor(resourceName, nameHandler);
         file.accept(accessTransformVisitor);
+
+        final List<AccessTransformer> newAccessTransformers = accessTransformVisitor.getAccessTransformers();
         final HashMap<Target<?>, AccessTransformer> localATCopy = new HashMap<>(accessTransformers);
-        mergeAccessTransformers(accessTransformVisitor.getAccessTransformers(), localATCopy, resourceName);
+        mergeAccessTransformers(newAccessTransformers, localATCopy, resourceName);
         final List<AccessTransformer> invalidTransformers = invalidTransformers(localATCopy);
         if (!invalidTransformers.isEmpty()) {
             invalidTransformers.forEach(at -> LOGGER.error(AXFORM_MARKER,"Invalid access transform final state for target {}. Referred in resources {}.",at.getTarget(), at.getOrigins()));
@@ -44,6 +47,10 @@ public class AccessTransformerList {
         }
         this.accessTransformers.clear();
         this.accessTransformers.putAll(localATCopy);
+        for (AccessTransformer newAccessTransformer : newAccessTransformers) {
+            this.validAtTypes.add(newAccessTransformer.getTarget().getASMType());
+        }
+
         LOGGER.debug(AXFORM_MARKER,"Loaded access transformer {} from path {}", resourceName, path);
     }
 
@@ -65,7 +72,7 @@ public class AccessTransformerList {
     }
 
     public boolean containsClassTarget(final Type type) {
-        return accessTransformers.keySet().stream().anyMatch(k->type.equals(k.getASMType()));
+        return validAtTypes.contains(type);
     }
 
     public Map<TargetType, Map<String,AccessTransformer>> getTransformersForTarget(final Type type) {
