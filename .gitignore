@@ -30,3 +30,5 @@
 /forge-deobfed.jar
 /out.log
 gradle.properties
+
+/at-jmh/build/

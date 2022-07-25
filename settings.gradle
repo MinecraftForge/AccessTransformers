@@ -6,4 +6,4 @@ pluginManagement {
 }
 
 rootProject.name = 'accesstransformers'
-
+include 'at-jmh'

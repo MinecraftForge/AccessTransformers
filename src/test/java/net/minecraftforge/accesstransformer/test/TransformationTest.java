@@ -32,6 +32,7 @@ public class TransformationTest {
     Class<?> transformedClass2;
     Class<?> transformedClass3;
 
+    @Disabled
     @Test
     public void testTestingLaunchHandler() throws IOException, URISyntaxException {
         System.setProperty("test.harness", "build/classes/java/testJars");
