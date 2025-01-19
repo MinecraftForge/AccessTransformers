@@ -28,7 +28,10 @@ dependencyResolutionManagement {
             library('modlauncher', 'net.minecraftforge:modlauncher:10.1.1') // Needs securemodules
             library('securemodules', 'net.minecraftforge:securemodules:2.2.2') // Needs unsafe
             library('gson', 'com.google.code.gson:gson:2.10.1')
-            library('jopt-simple', 'net.sf.jopt-simple:jopt-simple:6.0-alpha-3')
+            library('jopt-simple', 'net.sf.jopt-simple', 'jopt-simple').version {
+                require '[5.0.4,)'
+                prefer '6.0-alpha-3'
+            }
             library('nulls', 'org.jetbrains:annotations:24.1.0')
             
             version('log4j', '2.19.0')
