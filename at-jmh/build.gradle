@@ -1,14 +1,14 @@
 plugins {
     id 'java-library'
-    id 'net.minecraftforge.licenser'
+    alias libs.plugins.licenser
 }
 
 configurations {
-    jmhOnly
-}
+    dependencyScope('jmuRuntimeOnly')
 
-repositories {
-    mavenCentral()
+    resolvable('jmhRuntimeClasspath') {
+        extendsFrom jmuRuntimeOnly
+    }
 }
 
 java {
@@ -17,33 +17,31 @@ java {
 }
 
 license {
-    header = rootProject.file("LICENSE-header.txt")
+    header = rootProject.file('LICENSE-header.txt')
     newLine = false
 }
 
 dependencies {
     implementation rootProject
-    implementation libs.jmh.core
+    implementation testLibs.jmh.core
     implementation libs.asm
 
-    jmhOnly sourceSets.main.output
-    jmhOnly libs.bundles.jmh
+    jmuRuntimeOnly sourceSets.main.output
+    jmuRuntimeOnly testLibs.bundles.jmh
 
-    annotationProcessor libs.jmh.generator.annprocess
+    annotationProcessor testLibs.jmh.generator.annprocess
 }
 
 tasks.register('jmh', JavaExec) {
-    dependsOn rootProject.tasks.named('build')
+    dependsOn rootProject.tasks.named('check')
     dependsOn sourceSets.main.output
 
-    javaLauncher.set(javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(17)
-    })
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
     jvmArgs = [
-            '-p', sourceSets.main.runtimeClasspath.asPath,
-            '--add-modules', 'ALL-MODULE-PATH',
+        '-p', sourceSets.main.runtimeClasspath.asPath,
+        '--add-modules', 'ALL-MODULE-PATH',
     ]
-    classpath = files(configurations.jmhOnly.asPath)
+    classpath = configurations.jmhRuntimeClasspath
     mainClass = 'org.openjdk.jmh.Main'
 
     args '-bm', 'avgt'  // benchmark mode

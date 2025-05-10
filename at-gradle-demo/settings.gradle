@@ -1,0 +1,23 @@
+import org.gradle.api.initialization.resolve.RepositoriesMode
+
+pluginManagement {
+    includeBuild '../at-gradle'
+
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+    }
+}
+
+rootProject.name = 'at-gradle-demo'
+
+dependencyResolutionManagement {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+    }
+
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+
+    versionCatalogs.register('libs') {
+        library 'coremods', 'net.minecraftforge', 'coremods' version '5.2.6'
+    }
+}

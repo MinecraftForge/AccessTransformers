@@ -1,62 +1,52 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import net.minecraftforge.gradleutils.PomUtils
 
 plugins {
     id 'java-library'
     id 'maven-publish'
     id 'eclipse'
-    id 'com.github.ben-manes.versions' version '0.51.0'
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'net.minecraftforge.licenser' version '1.0.1'
-    id 'net.minecraftforge.gradleutils' version '[2.3,2.4)'
+    id 'idea'
+    alias libs.plugins.versions
+    alias libs.plugins.shadow
+    alias libs.plugins.licenser
+    alias libs.plugins.gradleutils
 }
 
-group 'net.minecraftforge'
+final projectDisplayName = 'AccessTransformers'
+final projectVendor = 'Forge Development LLC'
+description = 'Transforms class member access based on specification files.'
+group = 'net.minecraftforge'
+version = gitversion.tagOffset
 
-version = gradleutils.tagOffsetVersion
-println('Version: ' + version)
-
-repositories {
-    mavenCentral()
-    maven gradleutils.forgeMaven
-}
-
-license {
-    header = file('LICENSE-header.txt')
-    newLine = false
-}
+println "Version: $version"
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(8)
     withSourcesJar()
 }
 
-tasks.named('jar', Jar).configure {
-    dependsOn ':at-mlservice:processResources'
-    dependsOn ':at-mlservice:compileJava'
-    doFirst {
-        from project(':at-mlservice').sourceSets.main.output
+tasks.named('jar', Jar) {
+    final map = [
+        'Specification-Title'   : projectDisplayName,
+        'Specification-Vendor'  : projectVendor,
+        'Specification-Version' : '1',
+        'Implementation-Title'  : projectDisplayName,
+        'Implementation-Version': project.version,
+        'Implementation-Vendor' : projectVendor
+    ]
+
+    manifest {
+        attributes(map, 'net/minecraftforge/accesstransformer/')
+        attributes(map, 'net/minecraftforge/accesstransformer/service/')
     }
 
-    ext.SPEC = '1' // Should be tag but whatever
-    manifest {
-        attributes([
-            'Specification-Title': 'accesstransformers',
-            'Specification-Vendor': 'Forge Development LLC',
-            'Specification-Version': SPEC,
-            'Implementation-Title': project.name,
-            'Implementation-Version': project.version,
-            'Implementation-Vendor': 'Forge Development LLC'
-        ] as java.util.LinkedHashMap, 'net/minecraftforge/accesstransformer/')
-        attributes([
-            'Specification-Title': 'accesstransformers',
-            'Specification-Vendor': 'Forge Development LLC',
-            'Specification-Version': SPEC,
-            'Implementation-Title': project.name,
-            'Implementation-Version': project.version,
-            'Implementation-Vendor': 'Forge Development LLC'
-        ] as java.util.LinkedHashMap, 'net/minecraftforge/accesstransformer/service/')
-    }
+    dependsOn ':at-mlservice:processResources'
+    dependsOn ':at-mlservice:compileJava'
+    from provider { project(':at-mlservice').sourceSets.main.output }
+}
+
+license {
+    header = rootProject.file('LICENSE-header.txt')
+    newLine = false
 }
 
 changelog {
@@ -64,22 +54,22 @@ changelog {
 }
 
 dependencies {
-    implementation(libs.jopt.simple)
-    implementation(libs.bundles.asm)
-    implementation(libs.log4j.api)
-    implementation(libs.log4j.core)
+    implementation libs.jopt
+    implementation libs.bundles.asm
+    implementation libs.log4j.api
+    implementation libs.log4j.core
 }
 
-tasks.named('shadowJar', ShadowJar).configure {
-    archiveClassifier = 'fatjar'
-    exclude '**/Log4j2Plugins.dat'
+tasks.named('shadowJar', ShadowJar) {
     manifest {
-        inheritFrom jar.manifest
         attributes([
-            'Main-Class': 'net.minecraftforge.accesstransformer.TransformerProcessor',
+            'Main-Class'   : 'net.minecraftforge.accesstransformer.TransformerProcessor',
             'Multi-Release': 'true'
         ])
     }
+
+    archiveClassifier = 'fatjar'
+    exclude '**/Log4j2Plugins.dat'
 }
 
 artifacts {
@@ -89,38 +79,28 @@ artifacts {
 publishing {
     publications.register('mavenJava', MavenPublication) {
         from components.java
-        artifactId = 'accesstransformers'
-        pom {
-            name = 'Access Transformers'
-            description = 'Transforms class member access based on specification files'
-            url = 'https://github.com/MinecraftForge/AccessTransformers'
-            PomUtils.setGitHubDetails(pom, 'AccessTransformers')
 
-            license PomUtils.Licenses.MIT
+        artifactId = 'accesstransformers'
+
+        pom { pom ->
+            name = projectDisplayName
+            description = project.description
+
+            gradleutils.pom.setGitHubDetails pom
+
+            licenses {
+                license gradleutils.pom.licenses.MIT
+            }
 
             developers {
-                developer PomUtils.Developers.LexManos
-                developer PomUtils.Developers.cpw
-                developer PomUtils.Developers.DemonWav
+                developer gradleutils.pom.developers.LexManos
+                developer gradleutils.pom.developers.cpw
+                developer gradleutils.pom.developers.DemonWav
             }
         }
     }
+
     repositories {
         maven gradleutils.publishingForgeMaven
     }
-}
-
-allprojects {
-    ext.VALID_VMS = [
-        'Adoptium':  [16, 17, 18, 19, 20, 21],
-        'Amazon':    [16, 17, 18, 19, 20, 21],
-        'Azul':      (16..21),
-        'BellSoft':  (16..21),
-        'Graal_VM':  [16, 17,     19, 20, 21],
-        'IBM':       [16, 17, 18, 19, 20    ],
-        'Microsoft': [16, 17,             21],
-        'Oracle':    (16..21),
-        'SAP':       (16..20)
-    ]
-    ext.VALID_VMS = [ 'Adoptium':  [16] ]
 }

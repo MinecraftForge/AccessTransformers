@@ -1,8 +1,12 @@
-name: Publish
+name: Publish Gradle Plugin
 
 on:
   push:
     branches: [ 'master' ]
+    paths:
+      - at-gradle/**
+      - '!.github/workflows/**'
+      - '!settings.gradle'
 
 permissions:
   contents: read
@@ -12,8 +16,9 @@ jobs:
     uses: MinecraftForge/SharedActions/.github/workflows/gradle.yml@v0
     with:
       java: 17
-      gradle_tasks: 'publish'
-      artifact_name: 'accesstransformers'
+      gradle_tasks: ':at-gradle:publish :at-gradle:publishPlugins'
+      artifact_name: 'accesstransformers-gradle'
+      project_path: 'at-gradle'
     secrets:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       PROMOTE_ARTIFACT_WEBHOOK: ${{ secrets.PROMOTE_ARTIFACT_WEBHOOK }}
@@ -21,3 +26,5 @@ jobs:
       PROMOTE_ARTIFACT_PASSWORD: ${{ secrets.PROMOTE_ARTIFACT_PASSWORD }}
       MAVEN_USER: ${{ secrets.MAVEN_USER }}
       MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+      GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+      GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}

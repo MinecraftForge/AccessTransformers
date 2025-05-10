@@ -1,14 +1,9 @@
 plugins {
-    id 'eclipse'
     id 'java-library'
-    id 'net.minecraftforge.licenser'
-    id 'net.minecraftforge.gradleutils'
-}
-
-repositories {
-    mavenCentral()
-    maven gradleutils.forgeMaven
-    mavenLocal()
+    id 'eclipse'
+    id 'idea'
+    alias libs.plugins.licenser
+    alias libs.plugins.gradleutils
 }
 
 java {
@@ -16,55 +11,63 @@ java {
 }
 
 license {
-    header = rootProject.file("LICENSE-header.txt")
+    header = rootProject.file('LICENSE-header.txt')
     newLine = false
 }
 
-test {
+tasks.named('test', Test) {
     useJUnitPlatform()
-    reports.html.destination = rootProject.file("build/reports/")
-    reports.junitXml.destination = rootProject.file("build/test-results/")
+    reports.html.outputLocation = rootProject.layout.buildDirectory.dir('reports')
+    reports.junitXml.outputLocation = rootProject.layout.buildDirectory.dir('test-results')
 }
 
 dependencies {
-    testImplementation(rootProject)
-    testImplementation(project(':at-mlservice'))
-    testImplementation(project(':at-test-jar'))
-    testImplementation(libs.junit.api)
-    testImplementation(libs.unsafe)
-    testImplementation(libs.securemodules)
-    testImplementation(libs.modlauncher)
-    testImplementation(libs.asm)
-    testImplementation(libs.asm.tree)
-    testImplementation(libs.jopt.simple)
-    testImplementation(libs.log4j.api)
-    testImplementation(libs.log4j.core)
-    testImplementation(libs.gson)
-    testRuntimeOnly(libs.bundles.junit.runtime)
-    testCompileOnly(libs.nulls)
+    testImplementation rootProject
+    testImplementation project(':at-mlservice')
+    testImplementation project(':at-test-jar')
+    testImplementation testLibs.junit.api
+    testImplementation testLibs.unsafe
+    testImplementation libs.securemodules
+    testImplementation libs.modlauncher
+    testImplementation libs.asm
+    testImplementation libs.asm.tree
+    testImplementation libs.jopt
+    testImplementation libs.log4j.api
+    testImplementation libs.log4j.core
+    testImplementation testLibs.gson
+    testRuntimeOnly testLibs.bundles.junit.runtime
+    testCompileOnly libs.nulls
 }
 
-tasks.register('testAll', AggregateTest) {
+final testAll = tasks.register('testAll', AggregateTest) {
     input = file('build/test-results/')
     output = rootProject.file('test_results.html')
 }
 
-VALID_VMS.each { javaVendor, javaVersions ->
+def testFor(String javaVendor, int javaVersion, File output) {
+    tasks.<Test>register("test${javaVendor}${javaVersion}", Test) {
+        useJUnitPlatform()
+        classpath = sourceSets.test.runtimeClasspath
+        testClassesDirs = sourceSets.test.output.classesDirs
+        javaLauncher = javaToolchains.launcherFor {
+            vendor = JvmVendorSpec.of(javaVendor.toUpperCase(Locale.ROOT))
+            languageVersion = JavaLanguageVersion.of(javaVersion)
+            implementation = JvmImplementation.VENDOR_SPECIFIC
+        }
+        reports.html.outputLocation = layout.buildDirectory.dir("test-reports/${javaVendor}-${javaVersion}")
+        reports.junitXml.outputLocation = output
+    }
+}
+
+(VALID_VMS as Map<String, List<Integer>>).each { javaVendor, javaVersions ->
     javaVersions.each { javaVersion ->
         def output = file("build/test-results/${javaVendor}-${javaVersion}/")
         output.mkdirs()
-        def task = tasks.register("test${javaVendor}${javaVersion}", Test) {
-            useJUnitPlatform()
-            javaLauncher.set(javaToolchains.launcherFor {
-                it.vendor.set(JvmVendorSpec."${javaVendor.toUpperCase(Locale.ROOT)}" as JvmVendorSpec)
-                it.languageVersion.set(JavaLanguageVersion.of(javaVersion))
-                it.implementation.set(JvmImplementation.VENDOR_SPECIFIC)
-            })
-            reports.html.destination = file("build/test-reports/${javaVendor}-${javaVersion}/")
-            reports.junitXml.destination = output
+        def task = testFor(javaVendor, javaVersion, output)
+        testAll.configure {
+            inputs.dir(output)
+            dependsOn(task)
+            mustRunAfter(task)
         }
-        testAll.inputs.dir(output)
-        testAll.dependsOn(task)
-        testAll.mustRunAfter(task)
     }
 }
