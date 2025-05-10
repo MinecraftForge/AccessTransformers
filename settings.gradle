@@ -1,51 +1,85 @@
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        maven { url = 'https://maven.minecraftforge.net/' }
-    }
-}
+import groovy.transform.Field
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
-}
-
-dependencyResolutionManagement {
-    versionCatalogs {
-        libs {
-            version('asm', '9.7')
-            library('asm',         'org.ow2.asm', 'asm'        ).versionRef('asm')
-            library('asm-tree',    'org.ow2.asm', 'asm-tree'   ).versionRef('asm')
-            library('asm-commons', 'org.ow2.asm', 'asm-commons').versionRef('asm')
-            bundle('asm', ['asm', 'asm-tree', 'asm-commons'])
-            
-			version('junit', '5.10.2')
-			library('junit-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
-			library('junit-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
-			library('junit-platform-launcher', 'org.junit.platform:junit-platform-launcher:1.10.2')
-			bundle('junit-runtime', ['junit-engine', 'junit-platform-launcher'])
-
-            library('unsafe', 'net.minecraftforge:unsafe:0.9.2')
-            library('modlauncher', 'net.minecraftforge:modlauncher:10.1.1') // Needs securemodules
-            library('securemodules', 'net.minecraftforge:securemodules:2.2.2') // Needs unsafe
-            library('gson', 'com.google.code.gson:gson:2.10.1')
-            library('jopt-simple', 'net.sf.jopt-simple:jopt-simple:5.0.4')
-            library('nulls', 'org.jetbrains:annotations:24.1.0')
-            
-            version('log4j', '2.19.0')
-            library('log4j-api',  'org.apache.logging.log4j', 'log4j-api' ).versionRef('log4j')
-            library('log4j-core', 'org.apache.logging.log4j', 'log4j-core').versionRef('log4j')
-
-            version('jmh', '1.37')
-            library('jmh-core', 'org.openjdk.jmh', 'jmh-core').versionRef('jmh')
-            library('jmh-generator-annprocess', 'org.openjdk.jmh', 'jmh-generator-annprocess').versionRef('jmh')
-            bundle('jmh', ['jmh-core', 'jmh-generator-annprocess'])
-        }
-    }
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
 }
 
 rootProject.name = 'AccessTransformers'
+
+includeBuild 'at-gradle'
+//includeBuild 'at-gradle-demo'
 include 'at-mlservice'
 include 'at-test'
 include 'at-test-jar'
 include 'at-jmh'
 
+private final @Field @Lazy Map<String, List<Integer>> jmhVms = {
+    final bulkTests = providers.gradleProperty('bulk_tests').<boolean>map { 'true'.equalsIgnoreCase(it) }.getOrElse(false)
+    return (!bulkTests ? [ 'Adoptium':  [16] ] : [
+        'Adoptium':  [16, 17, 18, 19, 20, 21],
+        'Amazon':    [16, 17, 18, 19, 20, 21],
+        'Azul':      (16..21),
+        'BellSoft':  (16..21),
+        'Graal_VM':  [16, 17,     19, 20, 21],
+        'IBM':       [16, 17, 18, 19, 20    ],
+        'Microsoft': [16, 17,             21],
+        'Oracle':    (16..21),
+        'SAP':       (16..20)
+    ]) as Map<String, List<Integer>>
+}()
+
+gradle.beforeProject { Project project ->
+    project.extensions.extraProperties.set('VALID_VMS', jmhVms)
+}
+
+dependencyResolutionManagement {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
+
+    //@formatter:off
+    versionCatalogs {
+        register('libs') {
+            plugin 'versions',    'com.github.ben-manes.versions'  version '0.51.0'
+            plugin 'shadow',      'com.gradleup.shadow'            version '9.0.0-beta13'
+            plugin 'licenser',    'net.minecraftforge.licenser'    version '1.2.0'
+            plugin 'gradleutils', 'net.minecraftforge.gradleutils' version '2.6.1'
+
+            version 'asm', '9.7'
+            library 'asm',         'org.ow2.asm', 'asm'         versionRef 'asm'
+            library 'asm-tree',    'org.ow2.asm', 'asm-tree'    versionRef 'asm'
+            library 'asm-commons', 'org.ow2.asm', 'asm-commons' versionRef 'asm'
+            bundle 'asm', ['asm', 'asm-tree', 'asm-commons']
+
+            library 'jopt',          'net.sf.jopt-simple',   'jopt-simple'   version '5.0.4'
+            library 'nulls',         'org.jetbrains',        'annotations'   version '26.0.2'
+
+            version 'log4j', '2.19.0'
+            library 'log4j-api',  'org.apache.logging.log4j', 'log4j-api'  versionRef 'log4j'
+            library 'log4j-core', 'org.apache.logging.log4j', 'log4j-core' versionRef 'log4j'
+
+            library 'modlauncher',   'net.minecraftforge', 'modlauncher'   version '10.1.1' // Needs securemodules
+            library 'securemodules', 'net.minecraftforge', 'securemodules' version '2.2.2' // Needs unsafe
+        }
+
+        register('testLibs') {
+            description = 'Dependencies used exclusively for testing or test projects.'
+
+            library 'unsafe', 'net.minecraftforge',   'unsafe' version '0.9.2'
+            library 'gson',   'com.google.code.gson', 'gson'   version '2.10.1'
+
+            version 'junit', '5.10.2'
+            library 'junit-api',               'org.junit.jupiter',  'junit-jupiter-api'       versionRef 'junit'
+            library 'junit-engine',            'org.junit.jupiter',  'junit-jupiter-engine'    versionRef 'junit'
+            library 'junit-platform-launcher', 'org.junit.platform', 'junit-platform-launcher' version    '1.10.2'
+            bundle 'junit-runtime', ['junit-engine', 'junit-platform-launcher']
+
+            version 'jmh', '1.37'
+            library 'jmh-core',                 'org.openjdk.jmh', 'jmh-core'                 versionRef 'jmh'
+            library 'jmh-generator-annprocess', 'org.openjdk.jmh', 'jmh-generator-annprocess' versionRef 'jmh'
+            bundle 'jmh', ['jmh-core', 'jmh-generator-annprocess']
+        }
+    }
+    //@formatter:on
+}

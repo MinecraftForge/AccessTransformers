@@ -1,0 +1,3 @@
+[gradlePlugin]
+path = "at-gradle"
+tag = "gradle"

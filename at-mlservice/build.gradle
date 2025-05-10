@@ -1,14 +1,9 @@
 plugins {
-    id 'eclipse'
     id 'java-library'
-    id 'net.minecraftforge.licenser' version '1.0.1'
-    id 'net.minecraftforge.gradleutils' version '[2.3,2.4)'
-}
-
-repositories {
-    mavenCentral()
-    maven gradleutils.forgeMaven
-    mavenLocal()
+    id 'eclipse'
+    id 'idea'
+    alias libs.plugins.licenser
+    alias libs.plugins.gradleutils
 }
 
 java {
@@ -17,21 +12,21 @@ java {
 }
 
 license {
-    header = rootProject.file("LICENSE-header.txt")
+    header = rootProject.file('LICENSE-header.txt')
     newLine = false
 }
 
-test {
+tasks.named('test', Test) {
     useJUnitPlatform()
-    reports.html.destination = rootProject.file("build/reports/")
-    reports.junitXml.destination = rootProject.file("build/test-results/")
+    reports.html.outputLocation = rootProject.layout.buildDirectory.dir('reports')
+    reports.junitXml.outputLocation = rootProject.layout.buildDirectory.dir('test-results')
 }
 
 dependencies {
-    implementation(libs.modlauncher)
-    implementation(rootProject)
-    testImplementation(libs.junit.api)
-    testRuntimeOnly(libs.bundles.junit.runtime)
+    implementation libs.modlauncher
+    implementation rootProject
+    testImplementation testLibs.junit.api
+    testRuntimeOnly testLibs.bundles.junit.runtime
 }
 
 // Hack eclipse into knowing that the gradle deps are modules

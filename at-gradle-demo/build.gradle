@@ -1,0 +1,17 @@
+// TODO [AccessTransformers][at-gradle] Finish Demo project!
+//  See rootProject's settings.gradle for includeBuild line
+
+plugins {
+    id 'java'
+    id 'net.minecraftforge.accesstransformers'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+accessTransformers.register {
+    config = project.file('accesstransformer.cfg')
+}
+
+dependencies {
+    compileOnly accessTransformers.dep(libs.coremods)
+}

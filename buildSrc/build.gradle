@@ -2,13 +2,5 @@ plugins {
     id 'groovy'
 }
 
-repositories {
-    mavenCentral()
-    maven { url 'https://jitpack.io' }
-}
-
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
-
-dependencies {
-    implementation 'com.github.Steppschuh:Java-Markdown-Generator:1.3.2'
-}
+// sourceCompatibility instead of toolchain version so Gradle doesn't need to download a toolchain to compile us
+java.sourceCompatibility = JavaVersion.VERSION_1_8
