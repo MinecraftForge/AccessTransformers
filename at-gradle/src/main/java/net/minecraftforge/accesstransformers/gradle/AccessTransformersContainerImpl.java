@@ -4,6 +4,7 @@ import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.SimpleType;
+import org.gradle.api.JavaVersion;
 import org.gradle.api.PathValidation;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
@@ -195,7 +196,7 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
                 final JavaLanguageVersion version = JavaLanguageVersion.of(Constants.AT_MIN_JAVA);
 
                 JavaToolchainSpec currentToolchain = java.getToolchain();
-                Provider<JavaLauncher> launcher = currentToolchain.getLanguageVersion().get().canCompileOrRun(version)
+                Provider<JavaLauncher> launcher = currentToolchain.getLanguageVersion().getOrElse(JavaLanguageVersion.of(JavaVersion.current().ordinal() + 1)).canCompileOrRun(version)
                     ? javaToolchains.launcherFor(currentToolchain)
                     : javaToolchains.launcherFor(spec -> spec.getLanguageVersion().set(version));
 
