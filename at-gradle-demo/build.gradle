@@ -1,6 +1,3 @@
-// TODO [AccessTransformers][at-gradle] Finish Demo project!
-//  See rootProject's settings.gradle for includeBuild line
-
 plugins {
     id 'java'
     id 'net.minecraftforge.accesstransformers'
@@ -13,5 +10,6 @@ accessTransformers.register {
 }
 
 dependencies {
-    compileOnly accessTransformers.dep(libs.coremods)
+    implementation accessTransformers.dep(libs.coremods)
+    compileOnly libs.log4j.api
 }

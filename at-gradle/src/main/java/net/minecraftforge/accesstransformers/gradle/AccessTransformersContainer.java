@@ -8,6 +8,7 @@ import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.SimpleType;
+import net.minecraftforge.gradleutils.shared.Closures;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
@@ -31,53 +32,35 @@ import java.util.function.Function;
 ///
 /// @apiNote This interface is effectively sealed and [must not be extended][ApiStatus.NonExtendable].
 /// @see AccessTransformersExtension
-@SuppressWarnings("UnstableApiUsage") // ProviderConvertible<?> stabilized in Gradle 8
-@ApiStatus.NonExtendable // Sealed types were not added until Java 15
-public interface AccessTransformersContainer {
+public sealed interface AccessTransformersContainer permits AccessTransformersContainerInternal, AccessTransformersExtension {
     /// Registers a new container using the given attribute and options.
     ///
+    /// @param project   The project to make the container for
     /// @param attribute The boolean attribute to use for this container
     /// @param options   The options to apply
     /// @return The registered container
     /// @see AccessTransformersContainer.Options
     static AccessTransformersContainer register(Project project, Attribute<Boolean> attribute, Action<? super AccessTransformersContainer.Options> options) {
-        return register(project, attribute, Closures.action(AccessTransformersContainer.class, options));
+        return AccessTransformersContainerInternal.register(project, attribute, options);
     }
 
-    /// Registers a new container using the given attribute and options.
+    /// Gets the attribute used by the [transformer][ArtifactAccessTransformer]. It must be unique to this container.
     ///
-    /// @param attribute The boolean attribute to use for this container
-    /// @param options   The options to apply
-    /// @return The registered container
-    /// @see AccessTransformersContainer.Options
-    @SuppressWarnings("rawtypes") // public-facing closure
-    static AccessTransformersContainer register(
-        Project project,
-        Attribute<Boolean> attribute,
-        @DelegatesTo(value = AccessTransformersContainer.Options.class, strategy = Closure.DELEGATE_FIRST)
-        @ClosureParams(value = SimpleType.class, options = "net.minecraftforge.accesstransformers.gradle.AccessTransformersContainer.Options")
-        Closure options
-    ) {
-        return new AccessTransformersContainerImpl(project, attribute, options);
-    }
-
+    /// @return The attribute
+    /// @see <a href="https://docs.gradle.org/current/userguide/artifact_transforms.html">Artifact Transforms</a>
     Attribute<Boolean> getAttribute();
 
-    @SuppressWarnings("rawtypes") // public-facing closure
-    void options(
-        @DelegatesTo(value = AccessTransformersContainer.Options.class, strategy = Closure.DELEGATE_FIRST)
-        @ClosureParams(value = SimpleType.class, options = "net.minecraftforge.accesstransformers.gradle.AccessTransformersContainer.Options")
-        Closure closure
-    );
-
-    default void options(Action<? super AccessTransformersContainer.Options> action) {
-        this.options(Closures.action(this, action));
-    }
+    /// Configures the access transformer options.
+    ///
+    /// @param action The configuring action
+    /// @see AccessTransformersContainer.Options
+    void options(Action<? super AccessTransformersContainer.Options> action);
 
     /// Queues the given dependency to be transformed by AccessTransformers.
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param closure            A configuring closure for the dependency
+    /// @return The dependency to be transformed
     @SuppressWarnings("rawtypes") // public-facing closure
     Dependency dep(
         Object dependencyNotation,
@@ -90,6 +73,7 @@ public interface AccessTransformersContainer {
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param action             A configuring action for the dependency
+    /// @return The dependency to be transformed
     default Dependency dep(Object dependencyNotation, Action<? super Dependency> action) {
         return this.dep(dependencyNotation, Closures.action(this, action));
     }
@@ -97,6 +81,7 @@ public interface AccessTransformersContainer {
     /// Queues the given dependency to be transformed by AccessTransformers.
     ///
     /// @param dependencyNotation The dependency (notation)
+    /// @return The dependency to be transformed
     default Dependency dep(Object dependencyNotation) {
         return this.dep(dependencyNotation, Closures.empty(this));
     }
@@ -105,6 +90,7 @@ public interface AccessTransformersContainer {
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param closure            A configuring closure for the dependency
+    /// @return The dependency to be transformed
     @SuppressWarnings("rawtypes") // public-facing closure
     default Dependency dep(
         Provider<?> dependencyNotation,
@@ -119,6 +105,7 @@ public interface AccessTransformersContainer {
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param action             A configuring action for the dependency
+    /// @return The dependency to be transformed
     default Dependency dep(Provider<?> dependencyNotation, Action<? super Dependency> action) {
         return this.dep(dependencyNotation, Closures.action(this, action));
     }
@@ -126,6 +113,7 @@ public interface AccessTransformersContainer {
     /// Queues the given dependency to be transformed by AccessTransformers.
     ///
     /// @param dependencyNotation The dependency (notation)
+    /// @return The dependency to be transformed
     default Dependency dep(Provider<?> dependencyNotation) {
         return this.dep(dependencyNotation, Closures.empty(this));
     }
@@ -134,6 +122,7 @@ public interface AccessTransformersContainer {
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param closure            A configuring closure for the dependency
+    /// @return The dependency to be transformed
     @SuppressWarnings("rawtypes") // public-facing closure
     default Dependency dep(
         ProviderConvertible<?> dependencyNotation,
@@ -148,6 +137,7 @@ public interface AccessTransformersContainer {
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param action             A configuring action for the dependency
+    /// @return The dependency to be transformed
     default Dependency dep(ProviderConvertible<?> dependencyNotation, Action<? super Dependency> action) {
         return this.dep(dependencyNotation, Closures.action(this, action));
     }
@@ -155,23 +145,26 @@ public interface AccessTransformersContainer {
     /// Queues the given dependency to be transformed by AccessTransformers.
     ///
     /// @param dependencyNotation The dependency (notation)
+    /// @return The dependency to be transformed
     default Dependency dep(ProviderConvertible<?> dependencyNotation) {
         return this.dep(dependencyNotation, Closures.empty(this));
     }
 
     /// When initially registering an AccessTransformers container, the consumer must define key information regarding
     /// how AccessTransformers will be used. This interface is used to define that information.
-    @ApiStatus.NonExtendable
-    interface Options {
+    sealed interface Options permits AccessTransformersContainerInternal.Options {
         /// Sets the configuration to use as the classpath for AccessTransformers.
         ///
         /// @param files The file collection to use
         void setClasspath(FileCollection files);
 
+        /// Sets the dependency to use as the classpath for AccessTransformers.
+        ///
+        /// @param dependency The dependency to use
         void setClasspath(
             @DelegatesTo(value = DependencyHandler.class, strategy = Closure.DELEGATE_FIRST)
             @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.dsl.DependencyHandler")
-            Closure<? extends Dependency> closure
+            Closure<? extends Dependency> dependency
         );
 
         /// Sets the dependency to use as the classpath for AccessTransformers.

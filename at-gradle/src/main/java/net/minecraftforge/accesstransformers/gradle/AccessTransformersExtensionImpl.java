@@ -8,36 +8,39 @@ import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.SimpleType;
+import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.attributes.Attribute;
 import org.jetbrains.annotations.Nullable;
 
-final class AccessTransformersExtensionImpl implements AccessTransformersExtension {
+import javax.inject.Inject;
+import java.util.Objects;
+
+abstract class AccessTransformersExtensionImpl implements AccessTransformersExtensionInternal {
     private final Project project;
 
     private @Nullable AccessTransformersContainer container;
 
-    AccessTransformersExtensionImpl(Project project) {
+    @Inject
+    public AccessTransformersExtensionImpl(Project project) {
         this.project = project;
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // public-facing closure
     public AccessTransformersContainer register(
         Attribute<Boolean> attribute,
-        @DelegatesTo(value = AccessTransformersContainer.Options.class, strategy = Closure.DELEGATE_FIRST)
-        @ClosureParams(value = SimpleType.class, options = "net.minecraftforge.accesstransformers.gradle.AccessTransformersContainer.Options")
-        Closure options
+        Action<? super AccessTransformersContainer.Options> options
     ) {
         return this.container = AccessTransformersContainer.register(this.project, attribute, options);
     }
 
     private AccessTransformersContainer getContainer() {
-        if (this.container == null)
-            throw new IllegalStateException("Cannot configure options for AccessTransformers without having registered one! Use accessTransformers#register in your project.");
-
-        return this.container;
+        try {
+            return Objects.requireNonNull(this.container);
+        } catch (NullPointerException e) {
+            throw new IllegalStateException("Cannot configure options for AccessTransformers without having registered one! Use accessTransformers#register in your project.", e);
+        }
     }
 
     @Override
@@ -46,13 +49,8 @@ final class AccessTransformersExtensionImpl implements AccessTransformersExtensi
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // public-facing closure
-    public void options(
-        @DelegatesTo(value = AccessTransformersContainer.Options.class, strategy = Closure.DELEGATE_FIRST)
-        @ClosureParams(value = SimpleType.class, options = "net.minecraftforge.accesstransformers.gradle.AccessTransformersContainer.Options")
-        Closure closure
-    ) {
-        this.getContainer().options(closure);
+    public void options(Action<? super Options> action) {
+        this.getContainer().options(action);
     }
 
     @Override

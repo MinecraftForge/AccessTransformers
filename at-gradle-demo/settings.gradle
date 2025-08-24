@@ -1,23 +1,31 @@
-import org.gradle.api.initialization.resolve.RepositoriesMode
-
 pluginManagement {
     includeBuild '../at-gradle'
 
     repositories {
+        //mavenLocal()
+        mavenCentral()
+        gradlePluginPortal()
         maven { url = 'https://maven.minecraftforge.net' }
     }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+    id 'net.minecraftforge.gradleutils' version '3.2.5'
 }
 
 rootProject.name = 'at-gradle-demo'
 
 dependencyResolutionManagement {
     repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
+        maven gradleutils.forgeMaven
     }
-
-    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
 
     versionCatalogs.register('libs') {
         library 'coremods', 'net.minecraftforge', 'coremods' version '5.2.6'
+
+        version 'log4j', '2.19.0'
+        library 'log4j-api',  'org.apache.logging.log4j', 'log4j-api'  versionRef 'log4j'
     }
 }

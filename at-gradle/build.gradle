@@ -1,56 +1,73 @@
-import org.gradle.util.GradleVersion
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import io.freefair.gradle.plugins.maven.javadoc.JavadocLinkUtil
+import com.github.jengelman.gradle.plugins.shadow.ShadowJavaPlugin
+import org.gradle.api.attributes.plugin.GradlePluginApiVersion
 
 plugins {
-    id 'dev.gradleplugins.java-gradle-plugin'
+    id 'java-gradle-plugin'
     id 'idea'
     id 'eclipse'
     id 'maven-publish'
+    id 'io.freefair.javadoc-links'
+    id 'net.minecraftforge.gradleutils'
+    alias libs.plugins.gitversion
+    alias libs.plugins.changelog
     alias libs.plugins.licenser
-    alias libs.plugins.gradleutils
-    alias libs.plugins.javadoc.links
     alias libs.plugins.plugin.publish
     alias libs.plugins.shadow
 }
 
-final rootBuild = gradle.includedBuild('AccessTransformers')
-
 final projectDisplayName = 'AccessTransformers Gradle Plugin'
-final projectArtifactId = base.archivesName = 'accesstransformers-gradle'
 description = 'Enables Gradle projects to use AccessTransformers on dependencies with minimal hassle.'
+base.archivesName = 'accesstransformers-gradle'
 group = 'net.minecraftforge'
 version = gitversion.tagOffset
 
 println "Version: $version"
 
-java.toolchain.languageVersion = JavaLanguageVersion.of 8
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    withSourcesJar()
+    withJavadocJar()
+}
 
-repositories {
-    maven { url = 'https://maven.minecraftforge.net' }
-    mavenCentral()
+configurations {
+    // Applies the "Gradle Plugin API Version" attribute to configuration
+    // This was added in Gradle 7, gives consumers useful errors if they are on an old version
+    def applyGradleVersionAttribute = { Configuration configuration ->
+        configuration.attributes {
+            attribute(GradlePluginApiVersion.GRADLE_PLUGIN_API_VERSION_ATTRIBUTE, objects.named(GradlePluginApiVersion, libs.versions.gradle.get()))
+        }
+    }
+
+    named(JavaPlugin.RUNTIME_ELEMENTS_CONFIGURATION_NAME, applyGradleVersionAttribute)
+    named(ShadowJavaPlugin.SHADOW_RUNTIME_ELEMENTS_CONFIGURATION_NAME, applyGradleVersionAttribute)
 }
 
 dependencies {
-    // Utils
-    implementation libs.bundles.utils
-
     // Static Analysis
     compileOnly libs.nulls
+
+    // Gradle API
+    compileOnly libs.gradle
+
+    // GradleUtils Shared Base
+    implementation libs.gradleutils.shared
+
+    // Utils
+    implementation libs.bundles.utils
 }
 
 // Removes local Gradle API from compileOnly. This is a workaround for bugged plugins.
-// TODO [GradleUtils][GradleAPI] Remove this once they are fixed.
 // Publish Plugin: https://github.com/gradle/plugin-portal-requests/issues/260
 // Shadow:         https://github.com/GradleUp/shadow/pull/1422
 afterEvaluate { project ->
     project.configurations.named(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME) { compileOnly ->
-        compileOnly.dependencies.remove project.dependencies.gradleApi()
+        compileOnly.dependencies.remove(project.dependencies.gradleApi())
     }
 }
 
 license {
-    header = new File(rootBuild.projectDir, '/LICENSE-header.txt')
+    header = rootProject.file('../LICENSE-header.txt')
     newLine = false
     exclude '**/*.properties'
 }
@@ -60,42 +77,27 @@ tasks.named('jar', Jar) {
 }
 
 tasks.named('shadowJar', ShadowJar) {
-    enableRelocation = true
+    enableAutoRelocation = true
     archiveClassifier = null
     relocationPrefix = 'net.minecraftforge.accesstransformers.gradle.shadow'
 }
 
 tasks.withType(Javadoc).configureEach {
-    javadocTool = javaToolchains.javadocToolFor { languageVersion = JavaLanguageVersion.of 23 }
+    javadocTool = javaToolchains.javadocToolFor { languageVersion = JavaLanguageVersion.of(24) }
 
     options { StandardJavadocDocletOptions options ->
-        options.links(
-            // Manually included here, since the one at javadoc.io is ass
-            JavadocLinkUtil.getGradleApiLink(GradleVersion.version(libs.versions.gradle.get()))
-        )
-
         options.windowTitle = projectDisplayName + project.version
-        options.tags 'apiNote:a:API Note:', 'implNote:a:Implementation Note:'
+        options.tags 'apiNote:a:API Note:', 'implNote:a:Implementation Note:', 'implSpec:a:Implementation Requirements:'
     }
 }
 
 changelog {
     fromBase()
-    publishAll = false
 }
 
 gradlePlugin {
-    website.set gitversion.url
-    vcsUrl.set gitversion.url + '.git'
-
-    compatibility {
-        minimumGradleVersion = libs.versions.gradle.get()
-    }
-
-    java {
-        withSourcesJar()
-        withJavadocJar()
-    }
+    website = gitversion.url
+    vcsUrl = gitversion.url + '.git'
 
     plugins.register('accesstransformers') {
         id = 'net.minecraftforge.accesstransformers'
@@ -107,16 +109,19 @@ gradlePlugin {
 }
 
 publishing {
-    publications.register('pluginMaven', MavenPublication) {
-        artifactId = projectArtifactId
+    repositories {
+        maven gradleutils.getPublishingForgeMaven(rootProject.file('../repo'))
+    }
 
-        changelog.publish it
+    publications.register('pluginMaven', MavenPublication) {
+        changelog.publish(it)
+        gradleutils.promote(it)
 
         pom { pom ->
             name = projectDisplayName
             description = project.description
 
-            gradleutils.pom.setGitHubDetails pom
+            gradleutils.pom.addRemoteDetails(pom)
 
             licenses {
                 license gradleutils.pom.licenses.LGPLv2_1
@@ -127,10 +132,7 @@ publishing {
             }
         }
     }
-
-    repositories {
-        maven gradleutils.getPublishingForgeMaven(new File(rootBuild.projectDir, 'repo'))
-    }
 }
 
 idea.module { downloadSources = downloadJavadoc = true }
+eclipse.classpath { downloadSources = downloadJavadoc = true }

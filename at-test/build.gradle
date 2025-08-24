@@ -1,18 +1,16 @@
 plugins {
     id 'java-library'
-    id 'eclipse'
     id 'idea'
+    id 'eclipse'
     alias libs.plugins.licenser
-    alias libs.plugins.gradleutils
 }
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(16)
-}
+java.toolchain.languageVersion = JavaLanguageVersion.of(16)
 
 license {
     header = rootProject.file('LICENSE-header.txt')
     newLine = false
+    exclude '**/*.properties'
 }
 
 tasks.named('test', Test) {
@@ -71,3 +69,6 @@ def testFor(String javaVendor, int javaVersion, File output) {
         }
     }
 }
+
+idea.module { downloadSources = downloadJavadoc = true }
+eclipse.classpath { downloadSources = downloadJavadoc = true }

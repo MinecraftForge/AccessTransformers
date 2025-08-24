@@ -5,36 +5,34 @@
 package net.minecraftforge.accesstransformers.gradle;
 
 import net.minecraftforge.util.hash.HashStore;
-import org.apache.groovy.util.Maps;
-import org.gradle.api.Action;
 import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.TransformAction;
 import org.gradle.api.artifacts.transform.TransformOutputs;
 import org.gradle.api.artifacts.transform.TransformParameters;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
 import org.gradle.process.ExecOperations;
-import org.gradle.process.ExecResult;
+import org.gradle.process.ProcessExecutionException;
 
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -43,8 +41,8 @@ import java.util.stream.Collectors;
 
 /// Transforms artifacts using AccessTransformers.
 ///
-/// In ForgeGradle, this is only applied to the Minecraft classes artifact. It can, however, be apoplied to any artifact
-/// as long as it is a [jar][org.gradle.api.artifacts.type.ArtifactTypeDefinition#JAR_TYPE] file.
+/// This can be applied to any artifact as long as it is a
+/// [jar][org.gradle.api.artifacts.type.ArtifactTypeDefinition#JAR_TYPE] file.
 public abstract class ArtifactAccessTransformer implements TransformAction<ArtifactAccessTransformer.Parameters> {
     private static final Logger LOGGER = Logging.getLogger(ArtifactAccessTransformer.class);
 
@@ -60,7 +58,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         /// The dependency configuration to resolve where AccessTransformers will be found in.
         ///
         /// @return A property for the AccessTransformers dependency
-        @InputFiles Property<FileCollection> getClasspath();
+        @InputFiles @Classpath ConfigurableFileCollection getClasspath();
 
         /// The main class for AccessTransformers.
         ///
@@ -106,14 +104,25 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         @InputDirectory DirectoryProperty getCachesDir();
     }
 
-    private final ExecOperations execOperations;
+    private final AccessTransformersProblems problems;
+
+    /// The object factory provided by Gradle services.
+    ///
+    /// @return The object factory
+    /// @see <a href="https://docs.gradle.org/current/userguide/service_injection.html#objectfactory">ObjectFactory
+    /// Service Injection</a>
+    protected abstract @Inject ObjectFactory getObjects();
+
+    /// The exec operations provided by Gradle services.
+    ///
+    /// @return The exec operations
+    /// @see <a href="https://docs.gradle.org/current/userguide/service_injection.html#execoperations">ExecOperations
+    /// Service Injection</a>
+    protected abstract @Inject ExecOperations getExecOperations();
 
     /// The default constructor that is invoked by Gradle to instantiate this transform action.
-    ///
-    /// @param execOperations The exec operations used by this transform action
-    @Inject
-    public ArtifactAccessTransformer(ExecOperations execOperations) {
-        this.execOperations = execOperations;
+    public ArtifactAccessTransformer() {
+        this.problems = this.getObjects().newInstance(AccessTransformersProblems.class);
     }
 
     /// The artifact to transform with AccessTransformers.
@@ -126,8 +135,8 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// There are a few key distinctions that set this transform action apart from more traditional actions in Gradle
     /// and other plugins:
     ///
-    /// - If the [AccessTransformers configuration][Parameters#getConfig()] is unspecified or does not
-    /// exist, this transformation is skipped entirely.
+    /// - If the [AccessTransformers configuration][Parameters#getConfig()] is unspecified or does not exist, this
+    /// transformation is skipped entirely.
     ///   - Gradle detects changes to this file, so if it is changed, this transform action will be invoked by Gradle.
     /// - This transformer uses in-house caching to detect if the input artifact actually needs to be transformed in the
     /// first place.
@@ -138,11 +147,11 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// @param outputs The outputs for this transform action
     @Override
     public void transform(TransformOutputs outputs) {
-        Parameters parameters = this.getParameters();
+        var parameters = this.getParameters();
 
         // inputs
-        File inJar = this.getInputArtifact().get().getAsFile();
-        File atFile = parameters.getConfig().map(RegularFile::getAsFile).getOrNull();
+        var inJar = this.getInputArtifact().get().getAsFile();
+        var atFile = parameters.getConfig().map(RegularFile::getAsFile).getOrNull();
         if (atFile == null) {
             LOGGER.warn("WARNING: Access transformer configuration missing or not provided, skipping transformation for {}", inJar.getName());
             outputs.file(inJar);
@@ -150,15 +159,15 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         }
 
         // outputs
-        String outJarName = inJar.getName().replace(".jar", "-at.jar");
-        File outJar = this.file(outJarName);
-        File logFile = this.file(outJar.getName() + ".log");
+        var outJarName = inJar.getName().replace(".jar", "-at.jar");
+        var outJar = this.file(outJarName);
+        var logFile = this.file(outJar.getName() + ".log");
 
         // caches
-        DirectoryProperty cachesDir = parameters.getCachesDir();
+        var cachesDir = parameters.getCachesDir();
 
         // aforementioned in-house caching
-        HashStore cache = new HashStore(cachesDir.get().getAsFile())
+        var cache = new HashStore(cachesDir.get().getAsFile())
             .load(cachesDir.file(outJarName + ".cache").get().getAsFile())
             .add("atFile", atFile)
             .add("inJar", inJar)
@@ -168,16 +177,16 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
             LOGGER.info("Access transformer output up-to-date, skipping transformation for {}", inJar.getName());
         } else {
             LOGGER.info("Access transformer started. Input jar: {}", inJar.getAbsolutePath());
-            ExecResult result = this.execOperations.javaexec(exec -> {
-                OutputStream stream = toLog(LOGGER::info);
+            var result = this.getExecOperations().javaexec(exec -> {
+                var stream = Util.toLog(LOGGER::info);
                 exec.setStandardOutput(stream);
                 exec.setErrorOutput(stream);
 
                 exec.setExecutable(parameters.getJavaLauncher().get());
-                exec.setClasspath(parameters.getClasspath().get());
-                setOptional(exec.getMainClass(), parameters.getMainClass());
+                exec.setClasspath(parameters.getClasspath());
+                Util.setOptional(exec.getMainClass(), parameters.getMainClass());
 
-                Map<Pattern, String> substitutions = Maps.of(
+                var substitutions = Map.of(
                     ARG_INJAR, inJar.getAbsolutePath(),
                     ARG_ATFILE, atFile.getAbsolutePath(),
                     ARG_OUTJAR, outJar.getAbsolutePath(),
@@ -192,41 +201,30 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
             });
 
             try {
-                result.rethrowFailure();
-                result.assertNormalExitValue();
-            } catch (Exception e) {
-                /*
-                this.getReporter().throwing(e, id("access-transformer-failed", "Access transformer failed"), spec -> spec
-                    .details("""
-                        The access transformer failed to apply the transformations.
-                        This could potentially be caused by an invalid access transformer configuration.
-                        Input Jar: %s
-                        AccessTransformer Config: %s"""
-                        .formatted(inJar, atFile))
-                    .severity(Severity.ERROR)
-                    .stackLocation()
-                    .fileLocation(atFile.getAbsolutePath())
-                    .solution("Check your access transformer configuration file and ensure it is valid.")
-                    .solution(HELP_MESSAGE)
-                );
-                 */
-                LOGGER.error(
-                    "The access transformer failed to apply the transformations.\n" +
-                        "This could potentially be caused by an invalid access transformer configuration.\n" +
-                        "Input Jar: {}\n" +
-                        "AccessTransformer Config: {}\n" +
-                        '\n' +
-                        "Check your access transformer configuration file and ensure it is valid.",
-                    inJar, atFile);
-                throw new RuntimeException("Failed to apply access transformers to " + inJar.getName(), e);
+                result.rethrowFailure().assertNormalExitValue();
+            } catch (ProcessExecutionException e) {
+                throw this.problems.accessTransformerFailed(e, inJar, atFile, logFile);
             }
 
+            // TODO [AccessTransformers] If no changes were made, do not create a "modified" output jar
+            /*
+            try {
+                if (Arrays.equals(ResourceGroovyMethods.getBytes(inJar), ResourceGroovyMethods.getBytes(outJar))) {
+                    this.problems.reportAccessTransformerOutputIdentical(inJar, atFile, outJar, logFile);
+                } else {
+                    LOGGER.info("Access transformer completed. Output jar: {}", outJar.getAbsolutePath());
+                }
+            } catch (IOException e) {
+                this.problems.reportAccessTransformerCannotValidateOutput(e, inJar, atFile, outJar, logFile);
+            }
+             */
             LOGGER.info("Access transformer completed. Output jar: {}", outJar.getAbsolutePath());
+
             cache.add("outJar", outJar).save();
         }
 
         // transform output
-        Path output = outputs.file(outJarName).toPath();
+        var output = outputs.file(outJarName).toPath();
 
         try {
             Files.copy(
@@ -235,18 +233,8 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
                 StandardCopyOption.REPLACE_EXISTING
             );
         } catch (IOException e) {
-            throw new RuntimeException("Failed to copy access transformer output to destination: " + output.toAbsolutePath(), e);
+            throw this.problems.accessTransformerCannotWriteOutput(e, output);
         }
-    }
-
-    /// Conditionally set the given provider's value to the given property's value if the property is
-    /// [present][Provider#isPresent()].
-    ///
-    /// @param from The provider value to apply
-    /// @param to   The property to apply the new value to
-    /// @param <T>  The type of property
-    private static <T> void setOptional(Property<T> to, Provider<? extends T> from) {
-        if (from.isPresent()) to.set(from);
     }
 
     /// Uses [String#replace(CharSequence, CharSequence)] but with pre-compiled patterns provided in the given map.
@@ -255,7 +243,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// @param substitutions The map of substitutions to use
     /// @see String#replace(CharSequence, CharSequence)
     private static String replace(String s, Map<Pattern, String> substitutions) {
-        for (Map.Entry<Pattern, String> entry : substitutions.entrySet()) {
+        for (var entry : substitutions.entrySet()) {
             s = entry.getKey().matcher(s).replaceAll(Matcher.quoteReplacement(entry.getValue()));
         }
 
@@ -269,37 +257,6 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// @param path The path, from the caches directory, to the file
     /// @return The file
     private File file(String path) {
-        return this.getParameters().getCachesDir().file(path).map(file -> {
-            Path p = file.getAsFile().toPath();
-            try {
-                Files.createDirectories(p.getParent());
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to create parent directrory for " + p.toAbsolutePath(), e);
-            }
-
-            return file;
-        }).get().getAsFile();
-    }
-
-    /// Creates an output stream that logs to the given action.
-    ///
-    /// @param logger The logger to log to
-    /// @return The output stream
-    private static OutputStream toLog(Action<? super String> logger) {
-        return new OutputStream() {
-            private StringBuffer buffer = new StringBuffer(512);
-
-            @Override
-            public void write(int b) {
-                if (b == '\r' || b == '\n') {
-                    if (this.buffer.length() != 0) {
-                        logger.execute(this.buffer.toString());
-                        this.buffer = new StringBuffer(512);
-                    }
-                } else {
-                    this.buffer.append(b);
-                }
-            }
-        };
+        return this.getParameters().getCachesDir().file(path).map(this.problems.ensureFileLocation()).get().getAsFile();
     }
 }

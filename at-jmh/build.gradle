@@ -1,5 +1,7 @@
 plugins {
     id 'java-library'
+    id 'idea'
+    id 'eclipse'
     alias libs.plugins.licenser
 }
 
@@ -11,14 +13,12 @@ configurations {
     }
 }
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(8)
-    withSourcesJar()
-}
+java.toolchain.languageVersion = JavaLanguageVersion.of(8)
 
 license {
     header = rootProject.file('LICENSE-header.txt')
     newLine = false
+    exclude '**/*.properties'
 }
 
 dependencies {
@@ -56,6 +56,9 @@ tasks.register('jmh', JavaExec) {
     args '-tu', 'us' // time unit
     args '-i', '2' // iterations
     args '-f', '1' // forks
-    args '-rff', project.file("${rootProject.layout.buildDirectory.asFile.get()}/jmh_results.txt") // results file
+    args '-rff', "${rootProject.layout.buildDirectory.asFile.get()}/jmh_results.txt" // results file
     args 'net.minecraftforge.accesstransformer.benchmarks.AccessTransformerListBenchmark'
 }
+
+idea.module { downloadSources = downloadJavadoc = true }
+eclipse.classpath { downloadSources = downloadJavadoc = true }

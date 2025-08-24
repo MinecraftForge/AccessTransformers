@@ -1,10 +1,15 @@
+/*
+ * Copyright (c) Forge Development LLC
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
 package net.minecraftforge.accesstransformers.gradle;
 
 import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.SimpleType;
-import org.gradle.api.JavaVersion;
+import net.minecraftforge.gradleutils.shared.Closures;
+import org.gradle.api.Action;
 import org.gradle.api.PathValidation;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
@@ -18,44 +23,39 @@ import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.model.ObjectFactory;
-import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderFactory;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.InputFiles;
-import org.gradle.api.tasks.Optional;
-import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaLauncher;
-import org.gradle.jvm.toolchain.JavaToolchainService;
-import org.gradle.jvm.toolchain.JavaToolchainSpec;
 
 import javax.inject.Inject;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Objects;
 
-import static net.minecraftforge.accesstransformers.gradle.AccessTransformersPlugin.LOGGER;
+abstract class AccessTransformersContainerImpl implements AccessTransformersContainerInternal {
+    private final AccessTransformersPlugin plugin;
+    private final AccessTransformersProblems problems;
 
-final class AccessTransformersContainerImpl implements AccessTransformersContainer {
     private final Project project;
     private final Attribute<Boolean> attribute;
-    private final AccessTransformersContainerImpl.OptionsImpl options;
+    private final OptionsImpl options;
 
-    @SuppressWarnings("rawtypes") // public-facing closure
-    AccessTransformersContainerImpl(
+    protected abstract @Inject ObjectFactory getObjects();
+
+    @Inject
+    public AccessTransformersContainerImpl(
         Project project,
         Attribute<Boolean> attribute,
-        @DelegatesTo(value = AccessTransformersContainer.Options.class, strategy = Closure.DELEGATE_FIRST)
-        @ClosureParams(value = SimpleType.class, options = "net.minecraftforge.accesstransformers.gradle.AccessTransformersContainer.Options")
-        Closure options
+        Action<? super AccessTransformersContainer.Options> options
     ) {
+        this.project = project;
+
+        this.plugin = project.getPlugins().getPlugin(AccessTransformersPlugin.class);
+        this.problems = this.getObjects().newInstance(AccessTransformersProblems.class);
+
         this.attribute = Objects.requireNonNull(attribute);
-        Closures.invoke(this.options = new AccessTransformersContainerImpl.OptionsImpl(this.project = project), options);
+        options.execute(this.options = this.getObjects().newInstance(OptionsImpl.class, project));
 
         project.afterEvaluate(this::finish);
     }
@@ -76,22 +76,13 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
 
             dependencies.registerTransform(ArtifactAccessTransformer.class, spec -> {
                 spec.parameters(parameters -> {
-                    parameters.getClasspath().set(this.options.classpath);
+                    parameters.getClasspath().setFrom(this.options.classpath);
                     parameters.getMainClass().set(this.options.mainClass);
                     parameters.getJavaLauncher().set(this.options.javaLauncher);
                     parameters.getArgs().set(this.options.args);
                     parameters.getConfig().set(this.options.config);
 
-                    parameters.getCachesDir().convention(project.getLayout().getBuildDirectory().dir(Constants.CACHES_PATH_LOCAL).map(dir -> {
-                        Path path = dir.getAsFile().toPath();
-                        try {
-                            Files.createDirectories(path);
-                        } catch (IOException e) {
-                            throw new RuntimeException("Failed to create directory: " + path.toAbsolutePath(), e);
-                        }
-
-                        return dir;
-                    }));
+                    parameters.getCachesDir().convention(this.plugin.localCaches());
                 });
 
                 this.setAttributes(spec.getFrom(), false);
@@ -100,7 +91,6 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
         }));
     }
 
-    @SuppressWarnings("UnstableApiUsage") // ArtifactTypeDefinition#ARTIFACT_TYPE_ATTRIBUTE (stabilized in Gradle 8)
     private void setAttributes(AttributeContainer attributes, boolean value) {
         attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                   .attribute(this.attribute, value);
@@ -112,13 +102,8 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // public-facing closure
-    public void options(
-        @DelegatesTo(value = AccessTransformersContainer.Options.class, strategy = Closure.DELEGATE_FIRST)
-        @ClosureParams(value = SimpleType.class, options = "net.minecraftforge.accesstransformers.gradle.AccessTransformersContainer.Options")
-        Closure closure
-    ) {
-        Closures.invoke(this.options, closure);
+    public void options(Action<? super AccessTransformersContainer.Options> action) {
+        action.execute(this.options);
     }
 
     @Override
@@ -129,36 +114,38 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
         Closure closure
     ) {
-        Dependency dependency = project.getDependencies().create(dependencyNotation, closure);
+        var dependency = project.getDependencies().create(dependencyNotation, closure);
         if (dependency instanceof HasConfigurableAttributes<?>) {
             ((HasConfigurableAttributes<?>) dependency).attributes(a -> a.attribute(this.attribute, true));
         } else {
-            LOGGER.warn("Cannot apply access transformer attribute to dependency: {} ({})", dependency, dependency.getClass().getName());
+            this.problems.reportIllegalTargetDependency(dependency);
         }
         return dependency;
     }
 
-    private static final class OptionsImpl implements AccessTransformersContainer.Options {
+    static abstract class OptionsImpl implements AccessTransformersContainerInternal.Options {
         private final Project project;
-        private final ProviderFactory providers;
 
-        private @InputFiles FileCollection classpath;
-        private final @Optional @Input Property<String> mainClass;
-        private final @Input Property<String> javaLauncher;
-        private final @Input ListProperty<String> args;
-        private final @InputFile RegularFileProperty config;
+        private FileCollection classpath;
+        private final Property<String> mainClass;
+        private final Property<String> javaLauncher;
+        private final ListProperty<String> args;
+        private final RegularFileProperty config;
+
+        protected abstract @Inject ObjectFactory getObjects();
+        protected abstract @Inject ProviderFactory getProviders();
 
         @Inject
         public OptionsImpl(Project project) {
             this.project = project;
-            final ObjectFactory objects = project.getObjects();
-            this.providers = project.getProviders();
 
-            this.classpath = objects.fileCollection().from(DefaultTools.ACCESS_TRANSFORMERS);
-            this.mainClass = objects.property(String.class);
-            this.javaLauncher = objects.property(String.class).convention(this.defaultJavaLauncher());
-            this.args = objects.listProperty(String.class).convention(Constants.AT_DEFAULT_ARGS);
-            this.config = objects.fileProperty();
+            var plugin = project.getPlugins().getPlugin(AccessTransformersPlugin.class);
+
+            this.classpath = this.getObjects().fileCollection().from(plugin.getTool(Tools.ACCESSTRANSFORMERS));
+            this.mainClass = this.getObjects().property(String.class)/*.convention(Tools.ACCESSTRANSFORMERS.getMainClass())*/;
+            this.javaLauncher = this.getObjects().property(String.class).convention(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()).map(Util.LAUNCHER_EXECUTABLE));
+            this.args = this.getObjects().listProperty(String.class).convention(Constants.AT_DEFAULT_ARGS);
+            this.config = this.getObjects().fileProperty();
         }
 
         @Override
@@ -170,11 +157,11 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
         public void setClasspath(
             @DelegatesTo(value = DependencyHandler.class, strategy = Closure.DELEGATE_FIRST)
             @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.dsl.DependencyHandler")
-            Closure<? extends Dependency> closure
+            Closure<? extends Dependency> dependency
         ) {
             this.classpath = this.project.getConfigurations().detachedConfiguration().withDependencies(
-                dependencies -> dependencies.addLater(this.providers.provider(
-                    () -> Closures.<Dependency>invoke(this.project.getDependencies(), closure).copy()
+                dependencies -> dependencies.addLater(this.getProviders().provider(
+                    () -> Closures.<Dependency>invoke(dependency, this.project.getDependencies()).copy()
                 ))
             );
         }
@@ -189,29 +176,14 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
             this.mainClass.set(mainClass);
         }
 
-        private Provider<String> defaultJavaLauncher() {
-            return this.providers.provider(() -> {
-                final JavaPluginExtension java = this.project.getExtensions().getByType(JavaPluginExtension.class);
-                final JavaToolchainService javaToolchains = this.project.getExtensions().getByType(JavaToolchainService.class);
-                final JavaLanguageVersion version = JavaLanguageVersion.of(Constants.AT_MIN_JAVA);
-
-                JavaToolchainSpec currentToolchain = java.getToolchain();
-                Provider<JavaLauncher> launcher = currentToolchain.getLanguageVersion().getOrElse(JavaLanguageVersion.of(JavaVersion.current().ordinal() + 1)).canCompileOrRun(version)
-                    ? javaToolchains.launcherFor(currentToolchain)
-                    : javaToolchains.launcherFor(spec -> spec.getLanguageVersion().set(version));
-
-                return launcher.map(l -> l.getExecutablePath().toString()).get();
-            });
-        }
-
         @Override
         public void setJavaLauncher(Provider<? extends JavaLauncher> javaLauncher) {
-            this.javaLauncher.set(javaLauncher.map(java -> java.getExecutablePath().toString()));
+            this.javaLauncher.set(javaLauncher.map(Util.LAUNCHER_EXECUTABLE));
         }
 
         @Override
         public void setJavaLauncher(JavaLauncher javaLauncher) {
-            this.javaLauncher.set(javaLauncher.getExecutablePath().toString());
+            this.javaLauncher.set(this.getProviders().provider(() -> javaLauncher).map(Util.LAUNCHER_EXECUTABLE));
         }
 
         @Override
@@ -226,7 +198,7 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
 
         @Override
         public void setConfig(Provider<?> configFile) {
-            this.config.fileProvider(this.providers.provider(() -> {
+            this.config.fileProvider(this.getProviders().provider(() -> {
                 Object value = configFile.getOrNull();
                 if (value == null)
                     return null;
@@ -250,7 +222,7 @@ final class AccessTransformersContainerImpl implements AccessTransformersContain
 
         @Override
         public void setConfig(Object configFile) {
-            this.config.fileProvider(this.providers.provider(
+            this.config.fileProvider(this.getProviders().provider(
                 // if Project#file becomes inaccessible, use ProjectLayout#files
                 () -> this.project.file(configFile, PathValidation.FILE)
             ));

@@ -4,6 +4,7 @@
  */
 package net.minecraftforge.accesstransformers.gradle;
 
+import net.minecraftforge.gradleutils.shared.EnhancedPlugin;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;
@@ -16,34 +17,19 @@ import javax.inject.Inject;
 import java.io.File;
 import java.nio.file.Files;
 
-abstract class AccessTransformersPlugin implements Plugin<Project> {
+abstract class AccessTransformersPlugin extends EnhancedPlugin<Project> {
+    static final String NAME = "accesstransformers";
+    static final String DISPLAY_NAME = "AccessTransformers Gradle";
+
     static final Logger LOGGER = Logging.getLogger(AccessTransformersPlugin.class);
 
-    private final ObjectFactory objects;
-    private final ProviderFactory providers;
-
     @Inject
-    public AccessTransformersPlugin(ObjectFactory objects, ProviderFactory providers) {
-        this.objects = objects;
-        this.providers = providers;
+    public AccessTransformersPlugin() {
+        super(NAME, DISPLAY_NAME);
     }
 
     @Override
-    public void apply(Project project) {
-        final DirectoryProperty globalCaches = this.objects.directoryProperty().fileProvider(this.providers.provider(() -> {
-            File dir = new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Constants.CACHES_PATH_GLOBAL);
-            Files.createDirectories(dir.toPath());
-            return dir;
-        }));
-
-        // init default tools
-        DefaultTools.start(globalCaches);
-
-        // init accessTransformers extension
-        project.getExtensions().add(
-            AccessTransformersExtension.class,
-            AccessTransformersExtension.NAME,
-            new AccessTransformersExtensionImpl(project)
-        );
+    public void setup(Project project) {
+        project.getExtensions().create(AccessTransformersExtension.NAME, AccessTransformersExtensionImpl.class, project);
     }
 }
