@@ -24,6 +24,7 @@ import org.jetbrains.annotations.ApiStatus;
 import java.io.File;
 import java.util.Arrays;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /// Represents a container of dependencies that will be access transformed.
 ///
@@ -83,7 +84,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param dependencyNotation The dependency (notation)
     /// @return The dependency to be transformed
     default Dependency dep(Object dependencyNotation) {
-        return this.dep(dependencyNotation, Closures.empty(this));
+        return this.dep(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
     }
 
     /// Queues the given dependency to be transformed by AccessTransformers.
@@ -92,21 +93,19 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param closure            A configuring closure for the dependency
     /// @return The dependency to be transformed
     @SuppressWarnings("rawtypes") // public-facing closure
-    default Dependency dep(
+    Provider<?> dep(
         Provider<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
         Closure closure
-    ) {
-        return this.dep(dependencyNotation.get(), closure);
-    }
+    );
 
     /// Queues the given dependency to be transformed by AccessTransformers.
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @param action             A configuring action for the dependency
     /// @return The dependency to be transformed
-    default Dependency dep(Provider<?> dependencyNotation, Action<? super Dependency> action) {
+    default Provider<?> dep(Provider<?> dependencyNotation, Action<? super Dependency> action) {
         return this.dep(dependencyNotation, Closures.action(this, action));
     }
 
@@ -114,8 +113,8 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @return The dependency to be transformed
-    default Dependency dep(Provider<?> dependencyNotation) {
-        return this.dep(dependencyNotation, Closures.empty(this));
+    default Provider<?> dep(Provider<?> dependencyNotation) {
+        return this.dep(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
     }
 
     /// Queues the given dependency to be transformed by AccessTransformers.
@@ -124,7 +123,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param closure            A configuring closure for the dependency
     /// @return The dependency to be transformed
     @SuppressWarnings("rawtypes") // public-facing closure
-    default Dependency dep(
+    default Provider<?> dep(
         ProviderConvertible<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
@@ -138,7 +137,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param dependencyNotation The dependency (notation)
     /// @param action             A configuring action for the dependency
     /// @return The dependency to be transformed
-    default Dependency dep(ProviderConvertible<?> dependencyNotation, Action<? super Dependency> action) {
+    default Provider<?> dep(ProviderConvertible<?> dependencyNotation, Action<? super Dependency> action) {
         return this.dep(dependencyNotation, Closures.action(this, action));
     }
 
@@ -146,8 +145,8 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     ///
     /// @param dependencyNotation The dependency (notation)
     /// @return The dependency to be transformed
-    default Dependency dep(ProviderConvertible<?> dependencyNotation) {
-        return this.dep(dependencyNotation, Closures.empty(this));
+    default Provider<?> dep(ProviderConvertible<?> dependencyNotation) {
+        return this.dep(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
     }
 
     /// When initially registering an AccessTransformers container, the consumer must define key information regarding
@@ -203,7 +202,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
         ///
         /// @param dependencyNotation The dependency (notation) to use
         default void setClasspath(Object dependencyNotation) {
-            this.setClasspath(dependencyNotation, Closures.empty(this));
+            this.setClasspath(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
         }
 
         /// Sets the dependency to use as the classpath for AccessTransformers.
@@ -235,7 +234,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
         ///
         /// @param dependencyNotation The dependency (notation) to use
         default void setClasspath(Provider<?> dependencyNotation) {
-            this.setClasspath(dependencyNotation, Closures.empty(this));
+            this.setClasspath(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
         }
 
         /// Sets the dependency to use as the classpath for AccessTransformers.
@@ -267,7 +266,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
         ///
         /// @param dependencyNotation The dependency (notation) to use
         default void setClasspath(ProviderConvertible<?> dependencyNotation) {
-            this.setClasspath(dependencyNotation, Closures.empty(this));
+            this.setClasspath(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
         }
 
         /// Sets the main class to invoke when running AccessTransformers.

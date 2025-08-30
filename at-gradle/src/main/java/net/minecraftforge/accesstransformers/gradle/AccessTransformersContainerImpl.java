@@ -9,10 +9,13 @@ import groovy.lang.DelegatesTo;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.SimpleType;
 import net.minecraftforge.gradleutils.shared.Closures;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.gradle.api.Action;
 import org.gradle.api.PathValidation;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.ExternalModuleDependencyBundle;
+import org.gradle.api.artifacts.MinimalExternalModuleDependency;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
 import org.gradle.api.attributes.Attribute;
@@ -31,6 +34,8 @@ import org.gradle.jvm.toolchain.JavaLauncher;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.Serial;
+import java.util.ArrayList;
 import java.util.Objects;
 
 abstract class AccessTransformersContainerImpl implements AccessTransformersContainerInternal {
@@ -42,6 +47,7 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     private final OptionsImpl options;
 
     protected abstract @Inject ObjectFactory getObjects();
+    protected abstract @Inject ProviderFactory getProviders();
 
     @Inject
     public AccessTransformersContainerImpl(
@@ -107,20 +113,56 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // public-facing closure
+    @SuppressWarnings("rawtypes")
     public Dependency dep(
         Object dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
         Closure closure
     ) {
-        var dependency = project.getDependencies().create(dependencyNotation, closure);
-        if (dependency instanceof HasConfigurableAttributes<?>) {
-            ((HasConfigurableAttributes<?>) dependency).attributes(a -> a.attribute(this.attribute, true));
+        return this.project.getDependencies().create(dependencyNotation, closure.compose(Closures.<Dependency>unaryOperator(dependency -> {
+            if (dependency instanceof HasConfigurableAttributes<?> d) {
+                d.attributes(a -> a.attribute(this.attribute, true));
+            } else {
+                this.problems.reportIllegalTargetDependency(dependency);
+            }
+
+            return dependency;
+        })));
+    }
+
+    @Override
+    @SuppressWarnings("rawtypes")
+    public Provider<?> dep(
+        Provider<?> dependencyNotation,
+        @DelegatesTo(Dependency.class)
+        @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
+        Closure closure
+    ) {
+        if (dependencyNotation.isPresent() && dependencyNotation.get() instanceof ExternalModuleDependencyBundle bundle) {
+            // this provider MUST return ExternalModuleDependencyBundle
+            // The only way to coerce the type of it is to use a property, since we can set the type manually on creation.
+            // ProviderInternal#getType uses the generic argument to determine what type it is.
+            // Provider#map and #flatMap do NOT preserve the resultant type, which fucks with adding bundles to configurations.
+            return this.getObjects().property(ExternalModuleDependencyBundle.class).value(this.getProviders().provider(
+                () -> DefaultGroovyMethods.collect(
+                    bundle,
+                    new MappedExternalModuleDependencyBundle(),
+                    Closures.unaryOperator(d -> (MinimalExternalModuleDependency) this.dep(d, closure))
+                )
+            ));
         } else {
-            this.problems.reportIllegalTargetDependency(dependency);
+            // Rationale: single dependencies may have additional data that must be calculated at configuration time
+            // The most obvious example being usage of DependencyHandler#variantOf.
+            // If the dependency isn't created immediately, that information is lost when copying the base dependency (i don't know why)
+            // It's a rather negligible performance hit and FG6 was already doing this anyway, so it's not a big deal.
+            // Still going to return a Provider<?> though, since we also handle bundles in this method
+            return this.getObjects().property(Dependency.class).value(dependencyNotation.map(d -> this.dep(d, closure)));
         }
-        return dependency;
+    }
+
+    private static class MappedExternalModuleDependencyBundle extends ArrayList<MinimalExternalModuleDependency> implements ExternalModuleDependencyBundle {
+        private static final @Serial long serialVersionUID = -5641567719847374245L;
     }
 
     static abstract class OptionsImpl implements AccessTransformersContainerInternal.Options {

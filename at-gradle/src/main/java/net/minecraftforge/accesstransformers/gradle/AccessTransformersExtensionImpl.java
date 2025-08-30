@@ -12,6 +12,7 @@ import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.attributes.Attribute;
+import org.gradle.api.provider.Provider;
 import org.jetbrains.annotations.Nullable;
 
 import javax.inject.Inject;
@@ -57,6 +58,17 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     @SuppressWarnings("rawtypes") // public-facing closure
     public Dependency dep(
         Object dependencyNotation,
+        @DelegatesTo(Dependency.class)
+        @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
+        Closure closure
+    ) {
+        return this.getContainer().dep(dependencyNotation, closure);
+    }
+
+    @Override
+    @SuppressWarnings("rawtypes") // public-facing closure
+    public Provider<?> dep(
+        Provider<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
         Closure closure
