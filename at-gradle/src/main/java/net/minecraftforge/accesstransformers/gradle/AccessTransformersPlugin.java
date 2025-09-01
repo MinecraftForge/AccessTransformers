@@ -21,8 +21,6 @@ abstract class AccessTransformersPlugin extends EnhancedPlugin<Project> {
     static final String NAME = "accesstransformers";
     static final String DISPLAY_NAME = "AccessTransformers Gradle";
 
-    static final Logger LOGGER = Logging.getLogger(AccessTransformersPlugin.class);
-
     @Inject
     public AccessTransformersPlugin() {
         super(NAME, DISPLAY_NAME);

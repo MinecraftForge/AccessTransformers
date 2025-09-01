@@ -9,18 +9,22 @@ import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.TransformAction;
 import org.gradle.api.artifacts.transform.TransformOutputs;
 import org.gradle.api.artifacts.transform.TransformParameters;
+import org.gradle.api.attributes.Attribute;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.logging.LogLevel;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Classpath;
+import org.gradle.api.tasks.Console;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.InputFile;
@@ -31,6 +35,7 @@ import org.gradle.process.ProcessExecutionException;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -59,6 +64,11 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         ///
         /// @return A property for the AccessTransformers dependency
         @InputFiles @Classpath ConfigurableFileCollection getClasspath();
+
+        /// The log level to pipe the output of AccessTransformers to.
+        ///
+        /// @return The log level
+        @Console Property<LogLevel> getLogLevel();
 
         /// The main class for AccessTransformers.
         ///
@@ -113,6 +123,13 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// Service Injection</a>
     protected abstract @Inject ObjectFactory getObjects();
 
+    /// The provider factory provided by Gradle services.
+    ///
+    /// @return The provider factory
+    /// @see <a href="https://docs.gradle.org/current/userguide/service_injection.html#providerfactory">ProviderFactory
+    /// Service Injection</a>
+    protected abstract @Inject ProviderFactory getProviders();
+
     /// The exec operations provided by Gradle services.
     ///
     /// @return The exec operations
@@ -151,12 +168,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
 
         // inputs
         var inJar = this.getInputArtifact().get().getAsFile();
-        var atFile = parameters.getConfig().map(RegularFile::getAsFile).getOrNull();
-        if (atFile == null) {
-            LOGGER.warn("WARNING: Access transformer configuration missing or not provided, skipping transformation for {}", inJar.getName());
-            outputs.file(inJar);
-            return;
-        }
+        var atFile = parameters.getConfig().map(RegularFile::getAsFile).get();
 
         // outputs
         var outJarName = inJar.getName().replace(".jar", "-at.jar");
@@ -178,7 +190,8 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         } else {
             LOGGER.info("Access transformer started. Input jar: {}", inJar.getAbsolutePath());
             var result = this.getExecOperations().javaexec(exec -> {
-                var stream = Util.toLog(LOGGER::info);
+                var logLevel = parameters.getLogLevel().get();
+                var stream = Util.toLog(s -> LOGGER.log(logLevel, s));
                 exec.setStandardOutput(stream);
                 exec.setErrorOutput(stream);
 

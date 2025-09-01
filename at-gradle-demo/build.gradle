@@ -6,6 +6,7 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 accessTransformers.register {
+    logLevel = LogLevel.LIFECYCLE
     config = project.file('accesstransformer.cfg')
 }
 

@@ -25,6 +25,7 @@ import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.logging.LogLevel;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
@@ -34,6 +35,8 @@ import org.gradle.jvm.toolchain.JavaLauncher;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -67,6 +70,8 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     private void finish(Project project) {
+        this.validateATFile(this.attribute, this.options.config);
+
         project.dependencies(Closures.<DependencyHandler>consumer(this, dependencies -> {
             dependencies.attributesSchema(attributesSchema -> {
                 if (attributesSchema.hasAttribute(this.attribute))
@@ -82,11 +87,12 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
 
             dependencies.registerTransform(ArtifactAccessTransformer.class, spec -> {
                 spec.parameters(parameters -> {
+                    parameters.getConfig().set(this.options.config);
+                    parameters.getLogLevel().set(this.options.logLevel);
                     parameters.getClasspath().setFrom(this.options.classpath);
                     parameters.getMainClass().set(this.options.mainClass);
                     parameters.getJavaLauncher().set(this.options.javaLauncher);
                     parameters.getArgs().set(this.options.args);
-                    parameters.getConfig().set(this.options.config);
 
                     parameters.getCachesDir().convention(this.plugin.localCaches());
                 });
@@ -95,6 +101,31 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
                 this.setAttributes(spec.getTo(), true);
             });
         }));
+    }
+
+    private void validateATFile(Attribute<Boolean> attribute, RegularFileProperty atFileProperty) {
+        // check that consumer has defined the config
+        RegularFile atFileSource;
+        try {
+            atFileSource = atFileProperty.get();
+        } catch (IllegalStateException e) {
+            throw this.problems.accessTransformerConfigNotDefined(new RuntimeException("Failed to resolve config file property", e), attribute);
+        }
+
+        // check that the file exists
+        File atFile = atFileSource.getAsFile();
+        if (!atFile.exists())
+            throw this.problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFile)), attribute, atFile);
+
+        // check that the file can be read and isn't empty
+        String atFileContents;
+        try {
+            atFileContents = this.getProviders().fileContents(atFileSource).getAsText().get();
+        } catch (Throwable e) {
+            throw this.problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFile, e)), attribute, atFile);
+        }
+        if (atFileContents.isBlank())
+            throw this.problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFile), attribute, atFile);
     }
 
     private void setAttributes(AttributeContainer attributes, boolean value) {
@@ -168,11 +199,12 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     static abstract class OptionsImpl implements AccessTransformersContainerInternal.Options {
         private final Project project;
 
+        private final Property<LogLevel> logLevel = this.getObjects().property(LogLevel.class);
+        private final RegularFileProperty config = this.getObjects().fileProperty();
         private FileCollection classpath;
-        private final Property<String> mainClass;
-        private final Property<String> javaLauncher;
-        private final ListProperty<String> args;
-        private final RegularFileProperty config;
+        private final Property<String> mainClass = this.getObjects().property(String.class)/*.convention(Tools.ACCESSTRANSFORMERS.getMainClass())*/;
+        private final Property<String> javaLauncher = this.getObjects().property(String.class);
+        private final ListProperty<String> args = this.getObjects().listProperty(String.class);
 
         protected abstract @Inject ObjectFactory getObjects();
         protected abstract @Inject ProviderFactory getProviders();
@@ -183,11 +215,53 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
 
             var plugin = project.getPlugins().getPlugin(AccessTransformersPlugin.class);
 
+            this.logLevel.convention(LogLevel.INFO);
             this.classpath = this.getObjects().fileCollection().from(plugin.getTool(Tools.ACCESSTRANSFORMERS));
-            this.mainClass = this.getObjects().property(String.class)/*.convention(Tools.ACCESSTRANSFORMERS.getMainClass())*/;
-            this.javaLauncher = this.getObjects().property(String.class).convention(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()).map(Util.LAUNCHER_EXECUTABLE));
-            this.args = this.getObjects().listProperty(String.class).convention(Constants.AT_DEFAULT_ARGS);
-            this.config = this.getObjects().fileProperty();
+            //this.mainClass.convention(Tools.ACCESSTRANSFORMERS.getMainClass());
+            this.javaLauncher.convention(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()).map(Util.LAUNCHER_EXECUTABLE));
+            this.args.convention(Constants.AT_DEFAULT_ARGS);
+        }
+
+        @Override
+        public void setLogLevel(Provider<? extends LogLevel> level) {
+            this.logLevel.set(level);
+        }
+
+        @Override
+        public void setLogLevel(LogLevel level) {
+            this.logLevel.set(level);
+        }
+
+        @Override
+        public void setConfig(Provider<?> configFile) {
+            this.config.fileProvider(this.getProviders().provider(() -> {
+                Object value = configFile.getOrNull();
+                if (value == null)
+                    return null;
+                else if (value instanceof FileSystemLocation)
+                    value = ((FileSystemLocation) value).getAsFile();
+
+                // if Project#file becomes inaccessible, use ProjectLayout#files
+                return this.project.file(value, PathValidation.FILE);
+            }));
+        }
+
+        @Override
+        public void setConfig(RegularFile configFile) {
+            this.config.set(configFile);
+        }
+
+        @Override
+        public void setConfig(File configFile) {
+            this.config.set(configFile);
+        }
+
+        @Override
+        public void setConfig(Object configFile) {
+            this.config.fileProvider(this.getProviders().provider(
+                // if Project#file becomes inaccessible, use ProjectLayout#files
+                () -> this.project.file(configFile, PathValidation.FILE)
+            ));
         }
 
         @Override
@@ -236,38 +310,6 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
         @Override
         public void setArgs(Provider<? extends Iterable<String>> args) {
             this.args.set(args);
-        }
-
-        @Override
-        public void setConfig(Provider<?> configFile) {
-            this.config.fileProvider(this.getProviders().provider(() -> {
-                Object value = configFile.getOrNull();
-                if (value == null)
-                    return null;
-                else if (value instanceof FileSystemLocation)
-                    value = ((FileSystemLocation) value).getAsFile();
-
-                // if Project#file becomes inaccessible, use ProjectLayout#files
-                return this.project.file(value, PathValidation.FILE);
-            }));
-        }
-
-        @Override
-        public void setConfig(RegularFile configFile) {
-            this.config.set(configFile);
-        }
-
-        @Override
-        public void setConfig(File configFile) {
-            this.config.set(configFile);
-        }
-
-        @Override
-        public void setConfig(Object configFile) {
-            this.config.fileProvider(this.getProviders().provider(
-                // if Project#file becomes inaccessible, use ProjectLayout#files
-                () -> this.project.file(configFile, PathValidation.FILE)
-            ));
         }
     }
 }
