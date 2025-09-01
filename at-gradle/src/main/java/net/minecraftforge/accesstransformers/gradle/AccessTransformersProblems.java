@@ -47,36 +47,36 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigMissing(Exception e, Attribute<Boolean> attribute, File atFile) {
+    RuntimeException accessTransformerConfigMissing(Exception e, Attribute<Boolean> attribute, String atFilePath) {
         return this.getReporter().throwing(e, this.id("access-transformer-config-missing", "Access transformer config file not found"), spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file could not be found.
                 Attribute: %s
-                AccessTransformer Config: %s""".formatted(attribute, atFile))
+                AccessTransformer Config: %s""".formatted(attribute, atFilePath))
             .severity(Severity.ERROR)
             .solution("Ensure your AccessTransformers configuration file exists.")
             .solution("Do not use AccessTransformers if you do not need to.")
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigUnreadable(Throwable e, Attribute<Boolean> attribute, File atFile) {
+    RuntimeException accessTransformerConfigUnreadable(Throwable e, Attribute<Boolean> attribute, String atFilePath) {
         return this.getReporter().throwing(e, this.id("access-transformer-config-unreadable", "Access transformer config file not read"), spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file could not be read.
                 This may be due to insufficient file permissions or a corrupted file.
                 Attribute: %s
-                AccessTransformer Config: %s""".formatted(attribute, atFile))
+                AccessTransformer Config: %s""".formatted(attribute, atFilePath))
             .severity(Severity.ERROR)
             .solution("Ensure you (and/or Gradle) have proper read/write permissions to the AccessTransformer config file.")
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigEmpty(Exception e, Attribute<Boolean> attribute, File atFile) {
+    RuntimeException accessTransformerConfigEmpty(Exception e, Attribute<Boolean> attribute, String atFilePath) {
         return this.getReporter().throwing(e, this.id("access-transformer-config-empty", "Access transformer config missing or empty"), spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file is empty or blank.
                 Attribute: %s
-                AccessTransformer Config: %s""".formatted(attribute, atFile))
+                AccessTransformer Config: %s""".formatted(attribute, atFilePath))
             .severity(Severity.ERROR)
             .solution("Ensure your AccessTransformers configuration file contains definitions to be used.")
             .solution("Do not use AccessTransformers if you do not need to.")

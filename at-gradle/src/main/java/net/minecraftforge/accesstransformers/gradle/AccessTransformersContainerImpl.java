@@ -23,6 +23,7 @@ import org.gradle.api.attributes.AttributeContainer;
 import org.gradle.api.attributes.HasConfigurableAttributes;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileSystemLocation;
+import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.LogLevel;
@@ -38,6 +39,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serial;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Objects;
 
@@ -50,6 +52,7 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     private final OptionsImpl options;
 
     protected abstract @Inject ObjectFactory getObjects();
+    protected abstract @Inject ProjectLayout getProjectLayout();
     protected abstract @Inject ProviderFactory getProviders();
 
     @Inject
@@ -113,19 +116,20 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
         }
 
         // check that the file exists
-        File atFile = atFileSource.getAsFile();
+        var atFile = atFileSource.getAsFile();
+        var atFilePath = this.getProjectLayout().getProjectDirectory().getAsFile().toPath().relativize(atFile.toPath()).toString();
         if (!atFile.exists())
-            throw this.problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFile)), attribute, atFile);
+            throw this.problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFilePath)), attribute, atFilePath);
 
         // check that the file can be read and isn't empty
         String atFileContents;
         try {
             atFileContents = this.getProviders().fileContents(atFileSource).getAsText().get();
         } catch (Throwable e) {
-            throw this.problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFile, e)), attribute, atFile);
+            throw this.problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFilePath, e)), attribute, atFilePath);
         }
         if (atFileContents.isBlank())
-            throw this.problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFile), attribute, atFile);
+            throw this.problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFilePath), attribute, atFilePath);
     }
 
     private void setAttributes(AttributeContainer attributes, boolean value) {
