@@ -4,6 +4,7 @@ on:
   push:
     branches: [ 'master' ]
     paths-ignore:
+      - 'at-gradle/**'
       - '.github/workflows/**'
       - 'docs/**'
       - 'README.md'

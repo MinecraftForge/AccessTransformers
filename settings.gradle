@@ -1,7 +1,7 @@
 import groovy.transform.Field
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 
     // NOTE: We need to load this into the classpath before GradleUtils for the service to load correctly
     id 'io.freefair.javadoc-links' version '8.14' apply false // https://plugins.gradle.org/plugin/io.freefair.javadoc-links
