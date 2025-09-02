@@ -50,8 +50,8 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     @Override
-    public void options(Action<? super Options> action) {
-        this.getContainer().options(action);
+    public Options getOptions() {
+        return this.getContainer().getOptions();
     }
 
     @Override

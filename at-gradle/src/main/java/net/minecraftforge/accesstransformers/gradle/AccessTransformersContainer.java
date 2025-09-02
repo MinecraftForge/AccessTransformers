@@ -51,11 +51,19 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @see <a href="https://docs.gradle.org/current/userguide/artifact_transforms.html">Artifact Transforms</a>
     Attribute<Boolean> getAttribute();
 
+    /// Gets the access transformer options.
+    ///
+    /// @return The options
+    /// @see AccessTransformersContainer.Options
+    AccessTransformersContainer.Options getOptions();
+
     /// Configures the access transformer options.
     ///
     /// @param action The configuring action
     /// @see AccessTransformersContainer.Options
-    void options(Action<? super AccessTransformersContainer.Options> action);
+    default void options(Action<? super AccessTransformersContainer.Options> action) {
+        action.execute(this.getOptions());
+    }
 
     /// Queues the given dependency to be transformed by AccessTransformers.
     ///

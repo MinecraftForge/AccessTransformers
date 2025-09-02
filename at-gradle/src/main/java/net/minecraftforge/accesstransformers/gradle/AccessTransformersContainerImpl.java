@@ -139,8 +139,8 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     @Override
-    public void options(Action<? super AccessTransformersContainer.Options> action) {
-        action.execute(this.options);
+    public AccessTransformersContainer.Options getOptions() {
+        return this.options;
     }
 
     @Override
