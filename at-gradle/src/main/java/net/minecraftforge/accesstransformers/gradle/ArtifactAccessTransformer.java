@@ -9,7 +9,6 @@ import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.TransformAction;
 import org.gradle.api.artifacts.transform.TransformOutputs;
 import org.gradle.api.artifacts.transform.TransformParameters;
-import org.gradle.api.attributes.Attribute;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileSystemLocation;
@@ -35,7 +34,6 @@ import org.gradle.process.ProcessExecutionException;
 
 import javax.inject.Inject;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -60,15 +58,23 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
 
     /// The parameters for the transform action.
     public interface Parameters extends TransformParameters {
-        /// The dependency configuration to resolve where AccessTransformers will be found in.
+        /// The AccessTransformer configuration to use.
         ///
-        /// @return A property for the AccessTransformers dependency
-        @InputFiles @Classpath ConfigurableFileCollection getClasspath();
+        /// This is usually named `accesstransformer.cfg`. In Forge, it is required in production that this file exists
+        /// in the mod jar's `META-INF` directory.
+        ///
+        /// @return A property for the AccessTransformer configuration
+        @InputFile RegularFileProperty getConfig();
 
         /// The log level to pipe the output of AccessTransformers to.
         ///
         /// @return The log level
         @Console Property<LogLevel> getLogLevel();
+
+        /// The dependency configuration to resolve where AccessTransformers will be found in.
+        ///
+        /// @return A property for the AccessTransformers dependency
+        @InputFiles @Classpath ConfigurableFileCollection getClasspath();
 
         /// The main class for AccessTransformers.
         ///
@@ -97,14 +103,6 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         /// @return A property for the arguments
         @Input ListProperty<String> getArgs();
 
-        /// The AccessTransformer configuration to use.
-        ///
-        /// This is usually named `accesstransformer.cfg`. In Forge, it is required in production that this file exists
-        /// in the mod jar's `META-INF` directory.
-        ///
-        /// @return A property for the AccessTransformer configuration
-        @InputFile RegularFileProperty getConfig();
-
         /// The caches directory to use.
         ///
         /// This will include non-[transform output][TransformOutputs] files, such as in-house caching for the
@@ -122,13 +120,6 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// @see <a href="https://docs.gradle.org/current/userguide/service_injection.html#objectfactory">ObjectFactory
     /// Service Injection</a>
     protected abstract @Inject ObjectFactory getObjects();
-
-    /// The provider factory provided by Gradle services.
-    ///
-    /// @return The provider factory
-    /// @see <a href="https://docs.gradle.org/current/userguide/service_injection.html#providerfactory">ProviderFactory
-    /// Service Injection</a>
-    protected abstract @Inject ProviderFactory getProviders();
 
     /// The exec operations provided by Gradle services.
     ///

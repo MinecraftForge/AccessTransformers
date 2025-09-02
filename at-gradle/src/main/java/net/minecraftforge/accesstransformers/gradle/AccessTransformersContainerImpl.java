@@ -11,7 +11,6 @@ import groovy.transform.stc.SimpleType;
 import net.minecraftforge.gradleutils.shared.Closures;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.gradle.api.Action;
-import org.gradle.api.PathValidation;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependencyBundle;
@@ -21,8 +20,7 @@ import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.attributes.AttributeContainer;
 import org.gradle.api.attributes.HasConfigurableAttributes;
-import org.gradle.api.file.FileCollection;
-import org.gradle.api.file.FileSystemLocation;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
@@ -35,11 +33,9 @@ import org.gradle.api.provider.ProviderFactory;
 import org.gradle.jvm.toolchain.JavaLauncher;
 
 import javax.inject.Inject;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serial;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Objects;
 
@@ -94,8 +90,8 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
                     parameters.getLogLevel().set(this.options.logLevel);
                     parameters.getClasspath().setFrom(this.options.classpath);
                     parameters.getMainClass().set(this.options.mainClass);
-                    parameters.getJavaLauncher().set(this.options.javaLauncher);
-                    parameters.getArgs().set(this.options.args);
+                    parameters.getJavaLauncher().set(this.options.javaLauncher.map(Util.LAUNCHER_EXECUTABLE));
+                    parameters.getArgs().set(this.options.args.map(Util::listToString));
 
                     parameters.getCachesDir().convention(this.plugin.localCaches());
                 });
@@ -148,12 +144,11 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     @Override
-    @SuppressWarnings("rawtypes")
     public Dependency dep(
         Object dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     ) {
         return this.project.getDependencies().create(dependencyNotation, closure.compose(Closures.<Dependency>unaryOperator(dependency -> {
             if (dependency instanceof HasConfigurableAttributes<?> d) {
@@ -167,12 +162,11 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     @Override
-    @SuppressWarnings("rawtypes")
     public Provider<?> dep(
         Provider<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     ) {
         if (dependencyNotation.isPresent() && dependencyNotation.get() instanceof ExternalModuleDependencyBundle bundle) {
             // this provider MUST return ExternalModuleDependencyBundle
@@ -187,11 +181,7 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
                 )
             ));
         } else {
-            // Rationale: single dependencies may have additional data that must be calculated at configuration time
-            // The most obvious example being usage of DependencyHandler#variantOf.
-            // If the dependency isn't created immediately, that information is lost when copying the base dependency (i don't know why)
-            // It's a rather negligible performance hit and FG6 was already doing this anyway, so it's not a big deal.
-            // Still going to return a Provider<?> though, since we also handle bundles in this method
+            // Property<Dependency> exposes the Dependency class through Gradle's internals
             return this.getObjects().property(Dependency.class).value(dependencyNotation.map(d -> this.dep(d, closure)));
         }
     }
@@ -201,119 +191,54 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     static abstract class OptionsImpl implements AccessTransformersContainerInternal.Options {
-        private final Project project;
-
         private final Property<LogLevel> logLevel = this.getObjects().property(LogLevel.class);
         private final RegularFileProperty config = this.getObjects().fileProperty();
-        private FileCollection classpath;
-        private final Property<String> mainClass = this.getObjects().property(String.class)/*.convention(Tools.ACCESSTRANSFORMERS.getMainClass())*/;
-        private final Property<String> javaLauncher = this.getObjects().property(String.class);
-        private final ListProperty<String> args = this.getObjects().listProperty(String.class);
+        private final ConfigurableFileCollection classpath = this.getObjects().fileCollection();
+        private final Property<String> mainClass = this.getObjects().property(String.class);
+        private final Property<JavaLauncher> javaLauncher = this.getObjects().property(JavaLauncher.class);
+        private final ListProperty<Object> args = this.getObjects().listProperty(Object.class);
 
         protected abstract @Inject ObjectFactory getObjects();
-        protected abstract @Inject ProviderFactory getProviders();
 
         @Inject
         public OptionsImpl(Project project) {
-            this.project = project;
-
             var plugin = project.getPlugins().getPlugin(AccessTransformersPlugin.class);
 
             this.logLevel.convention(LogLevel.INFO);
-            this.classpath = this.getObjects().fileCollection().from(plugin.getTool(Tools.ACCESSTRANSFORMERS));
+            this.classpath.from(plugin.getTool(Tools.ACCESSTRANSFORMERS));
             //this.mainClass.convention(Tools.ACCESSTRANSFORMERS.getMainClass());
-            this.javaLauncher.convention(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()).map(Util.LAUNCHER_EXECUTABLE));
+            this.javaLauncher.convention(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()));
             this.args.convention(Constants.AT_DEFAULT_ARGS);
         }
 
         @Override
-        public void setLogLevel(Provider<? extends LogLevel> level) {
-            this.logLevel.set(level);
+        public RegularFileProperty getConfig() {
+            return this.config;
         }
 
         @Override
-        public void setLogLevel(LogLevel level) {
-            this.logLevel.set(level);
+        public Property<LogLevel> getLogLevel() {
+            return this.logLevel;
         }
 
         @Override
-        public void setConfig(Provider<?> configFile) {
-            this.config.fileProvider(this.getProviders().provider(() -> {
-                Object value = configFile.getOrNull();
-                if (value == null)
-                    return null;
-                else if (value instanceof FileSystemLocation)
-                    value = ((FileSystemLocation) value).getAsFile();
-
-                // if Project#file becomes inaccessible, use ProjectLayout#files
-                return this.project.file(value, PathValidation.FILE);
-            }));
+        public ConfigurableFileCollection getClasspath() {
+            return this.classpath;
         }
 
         @Override
-        public void setConfig(RegularFile configFile) {
-            this.config.set(configFile);
+        public Property<String> getMainClass() {
+            return this.mainClass;
         }
 
         @Override
-        public void setConfig(File configFile) {
-            this.config.set(configFile);
+        public Property<JavaLauncher> getJavaLauncher() {
+            return this.javaLauncher;
         }
 
         @Override
-        public void setConfig(Object configFile) {
-            this.config.fileProvider(this.getProviders().provider(
-                // if Project#file becomes inaccessible, use ProjectLayout#files
-                () -> this.project.file(configFile, PathValidation.FILE)
-            ));
-        }
-
-        @Override
-        public void setClasspath(FileCollection files) {
-            this.classpath = files;
-        }
-
-        @Override
-        public void setClasspath(
-            @DelegatesTo(value = DependencyHandler.class, strategy = Closure.DELEGATE_FIRST)
-            @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.dsl.DependencyHandler")
-            Closure<? extends Dependency> dependency
-        ) {
-            this.classpath = this.project.getConfigurations().detachedConfiguration().withDependencies(
-                dependencies -> dependencies.addLater(this.getProviders().provider(
-                    () -> Closures.<Dependency>invoke(dependency, this.project.getDependencies()).copy()
-                ))
-            );
-        }
-
-        @Override
-        public void setMainClass(Provider<String> mainClass) {
-            this.mainClass.set(mainClass);
-        }
-
-        @Override
-        public void setMainClass(String mainClass) {
-            this.mainClass.set(mainClass);
-        }
-
-        @Override
-        public void setJavaLauncher(Provider<? extends JavaLauncher> javaLauncher) {
-            this.javaLauncher.set(javaLauncher.map(Util.LAUNCHER_EXECUTABLE));
-        }
-
-        @Override
-        public void setJavaLauncher(JavaLauncher javaLauncher) {
-            this.javaLauncher.set(this.getProviders().provider(() -> javaLauncher).map(Util.LAUNCHER_EXECUTABLE));
-        }
-
-        @Override
-        public void setArgs(Iterable<String> args) {
-            this.args.set(args);
-        }
-
-        @Override
-        public void setArgs(Provider<? extends Iterable<String>> args) {
-            this.args.set(args);
+        public ListProperty<Object> getArgs() {
+            return this.args;
         }
     }
 }

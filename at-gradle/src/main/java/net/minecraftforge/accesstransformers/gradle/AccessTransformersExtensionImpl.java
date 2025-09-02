@@ -55,23 +55,21 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // public-facing closure
     public Dependency dep(
         Object dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     ) {
         return this.getContainer().dep(dependencyNotation, closure);
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // public-facing closure
     public Provider<?> dep(
         Provider<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     ) {
         return this.getContainer().dep(dependencyNotation, closure);
     }

@@ -12,19 +12,18 @@ import net.minecraftforge.gradleutils.shared.Closures;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.attributes.Attribute;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.FileCollection;
-import org.gradle.api.file.RegularFile;
+import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.LogLevel;
+import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderConvertible;
 import org.gradle.jvm.toolchain.JavaLauncher;
 import org.jetbrains.annotations.ApiStatus;
 
-import java.io.File;
-import java.util.Arrays;
-import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /// Represents a container of dependencies that will be access transformed.
@@ -63,12 +62,11 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param dependencyNotation The dependency (notation)
     /// @param closure            A configuring closure for the dependency
     /// @return The dependency to be transformed
-    @SuppressWarnings("rawtypes") // public-facing closure
     Dependency dep(
         Object dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     );
 
     /// Queues the given dependency to be transformed by AccessTransformers.
@@ -93,12 +91,11 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param dependencyNotation The dependency (notation)
     /// @param closure            A configuring closure for the dependency
     /// @return The dependency to be transformed
-    @SuppressWarnings("rawtypes") // public-facing closure
     Provider<?> dep(
         Provider<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     );
 
     /// Queues the given dependency to be transformed by AccessTransformers.
@@ -123,12 +120,11 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// @param dependencyNotation The dependency (notation)
     /// @param closure            A configuring closure for the dependency
     /// @return The dependency to be transformed
-    @SuppressWarnings("rawtypes") // public-facing closure
     default Provider<?> dep(
         ProviderConvertible<?> dependencyNotation,
         @DelegatesTo(Dependency.class)
         @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure closure
+        Closure<?> closure
     ) {
         return this.dep(dependencyNotation.asProvider(), closure);
     }
@@ -153,199 +149,43 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// When initially registering an AccessTransformers container, the consumer must define key information regarding
     /// how AccessTransformers will be used. This interface is used to define that information.
     sealed interface Options permits AccessTransformersContainerInternal.Options {
-        /// Sets the AccessTransformer configuration to use.
+        /// Gets the AccessTransformer configuration to use.
         ///
-        /// If the given provider does not provide a [file][File] or [regular file][RegularFile], the result will be
-        /// resolved using [org.gradle.api.Project#file(Object)], similarly to [#setConfig(Object)].
-        ///
-        /// @param configFile The configuration file to use
-        void setConfig(Provider<?> configFile);
+        /// @return The property for the configuration
+        RegularFileProperty getConfig();
 
-        /// Sets the AccessTransformer configuration to use.
+        /// Gets the log level to pipe the output of AccessTransformers to.
         ///
-        /// @param configFile The configuration file to use
-        void setConfig(RegularFile configFile);
-
-        /// Sets the AccessTransformer configuration to use.
-        ///
-        /// @param configFile The configuration file to use
-        void setConfig(File configFile);
-
-        /// Sets the AccessTransformer configuration to use.
-        ///
-        /// The given object is resolved using [org.gradle.api.Project#file(Object)].
-        ///
-        /// @param configFile The configuration file to use
-        void setConfig(Object configFile);
-
-        /// Sets the log level to pipe the output of AccessTransformers to.
-        ///
-        /// @param level The log level to use
+        /// @return The property log level to use
         /// @apiNote This is [experimental][ApiStatus.Experimental] due to the fact that AccessTransformers treats both
         /// [System#out] and [System#err] equally, while preferring to use the latter. This will be addressed in a
         /// future version of AccessTransformers.
         @ApiStatus.Experimental
-        void setLogLevel(LogLevel level);
+        Property<LogLevel> getLogLevel();
 
-        /// Sets the log level to pipe the output of AccessTransformers to.
+        /// Gets the classpath to use for AccessTransformers. By default, this contains the default AccessTransformers
+        /// shadow JAR.
         ///
-        /// @param level The log level to use
-        /// @apiNote This is [experimental][ApiStatus.Experimental] due to the fact that AccessTransformers treats both
-        /// [System#out] and [System#err] equally, while preferring to use the latter. This will be addressed in a
-        /// future version of AccessTransformers.
-        @ApiStatus.Experimental
-        void setLogLevel(Provider<? extends LogLevel> level);
+        /// @return The classpath
+        /// @apiNote This is *not* the dependency's classpath. This is the classpath used in
+        /// [org.gradle.process.JavaExecSpec#setClasspath(FileCollection)] to invoke AccessTransformers.
+        ConfigurableFileCollection getClasspath();
 
-        /// Sets the configuration to use as the classpath for AccessTransformers.
+        /// Gets the main class to invoke when running AccessTransformers.
         ///
-        /// @param files The file collection to use
-        void setClasspath(FileCollection files);
+        /// @return The property for the main class.
+        /// @apiNote This is *not required* if the [classpath][#getClasspath()] is a single executable jar.
+        Property<String> getMainClass();
 
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependency The dependency to use
-        void setClasspath(
-            @DelegatesTo(value = DependencyHandler.class, strategy = Closure.DELEGATE_FIRST)
-            @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.dsl.DependencyHandler")
-            Closure<? extends Dependency> dependency
-        );
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependency The dependency to use
-        default void setClasspath(Function<? super DependencyHandler, ? extends Dependency> dependency) {
-            this.setClasspath(Closures.function(this, dependency));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        /// @param closure            A configuring closure for the dependency
-        @SuppressWarnings("rawtypes")
-        default void setClasspath(
-            Object dependencyNotation,
-            @DelegatesTo(Dependency.class)
-            @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-            Closure closure
-        ) {
-            this.setClasspath(dependencies -> dependencies.create(dependencyNotation, closure));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        /// @param action             A configuring action for the dependency
-        default void setClasspath(
-            Object dependencyNotation,
-            Action<? super Dependency> action
-        ) {
-            this.setClasspath(dependencyNotation, Closures.action(this, action));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        default void setClasspath(Object dependencyNotation) {
-            this.setClasspath(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        /// @param closure            A configuring closure for the dependency
-        @SuppressWarnings("rawtypes")
-        default void setClasspath(
-            Provider<?> dependencyNotation,
-            @DelegatesTo(Dependency.class)
-            @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-            Closure closure
-        ) {
-            this.setClasspath(dependencyNotation.get(), closure);
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        /// @param action             A configuring action for the dependency
-        default void setClasspath(
-            Provider<?> dependencyNotation,
-            Action<? super Dependency> action
-        ) {
-            this.setClasspath(dependencyNotation, Closures.action(this, action));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        default void setClasspath(Provider<?> dependencyNotation) {
-            this.setClasspath(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        /// @param closure            A configuring closure for the dependency
-        @SuppressWarnings("rawtypes")
-        default void setClasspath(
-            ProviderConvertible<?> dependencyNotation,
-            @DelegatesTo(Dependency.class)
-            @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-            Closure closure
-        ) {
-            this.setClasspath(dependencyNotation.asProvider(), closure);
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        /// @param action             A configuring action for the dependency
-        default void setClasspath(
-            ProviderConvertible<?> dependencyNotation,
-            Action<? super Dependency> action
-        ) {
-            this.setClasspath(dependencyNotation, Closures.action(this, action));
-        }
-
-        /// Sets the dependency to use as the classpath for AccessTransformers.
-        ///
-        /// @param dependencyNotation The dependency (notation) to use
-        default void setClasspath(ProviderConvertible<?> dependencyNotation) {
-            this.setClasspath(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
-        }
-
-        /// Sets the main class to invoke when running AccessTransformers.
-        ///
-        /// @param mainClass The main class to use
-        /// @apiNote This is *not required* if the given [classpath][#setClasspath(FileCollection)] is a single
-        /// executable jar.
-        void setMainClass(Provider<String> mainClass);
-
-        /// Sets the main class to invoke when running AccessTransformers.
-        ///
-        /// @param mainClass The main class to use
-        /// @apiNote This is *not required* if the given [classpath][#setClasspath(FileCollection)] is a single
-        /// executable jar.
-        void setMainClass(String mainClass);
-
-        /// Sets the Java launcher to use to run AccessTransformers.
+        /// Gets the Java launcher used to run AccessTransformers.
         ///
         /// This can be easily acquired using [Java toolchains][org.gradle.jvm.toolchain.JavaToolchainService].
         ///
-        /// @param javaLauncher The Java launcher to use
+        /// @return The property for the Java launcher
         /// @see org.gradle.jvm.toolchain.JavaToolchainService#launcherFor(Action)
-        void setJavaLauncher(Provider<? extends JavaLauncher> javaLauncher);
+        Property<JavaLauncher> getJavaLauncher();
 
-        /// Sets the Java launcher to use to run AccessTransformers.
-        ///
-        /// This can be easily acquired using [Java toolchains][org.gradle.jvm.toolchain.JavaToolchainService].
-        ///
-        /// @param javaLauncher The Java launcher to use
-        /// @apiNote This method exists in case consumers have an eagerly processed `JavaLauncher` object. It is
-        /// recommended to use [#setJavaLauncher(Provider)] instead.
-        /// @see org.gradle.jvm.toolchain.JavaToolchainService#launcherFor(Action)
-        void setJavaLauncher(JavaLauncher javaLauncher);
-
-        /// Sets the arguments to use when running AccessTransformers.
+        /// Gets the list of arguments to use when running AccessTransformers.
         ///
         /// When processed by the transform action, these arguments will have specific tokens in them replaced.
         ///
@@ -354,33 +194,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
         /// - `{outJar}` - The output jar
         /// - `{logFile}` - The log file
         ///
-        /// @param args The arguments to use
-        void setArgs(Provider<? extends Iterable<String>> args);
-
-        /// Sets the arguments to use when running AccessTransformers.
-        ///
-        /// When processed by the transform action, these arguments will have specific tokens in them replaced.
-        ///
-        /// - `{inJar}` - The input jar
-        /// - `{atFile}` - The AccessTransformers configuration file
-        /// - `{outJar}` - The output jar
-        /// - `{logFile}` - The log file
-        ///
-        /// @param args The arguments to use
-        void setArgs(Iterable<String> args);
-
-        /// Sets the arguments to use when running AccessTransformers.
-        ///
-        /// When processed by the transform action, these arguments will have specific tokens in them replaced.
-        ///
-        /// - `{inJar}` - The input jar
-        /// - `{atFile}` - The AccessTransformers configuration file
-        /// - `{outJar}` - The output jar
-        /// - `{logFile}` - The log file
-        ///
-        /// @param args The arguments to use
-        default void setArgs(String... args) {
-            this.setArgs(Arrays.asList(args));
-        }
+        /// @return The property for the arguments.
+        ListProperty<Object> getArgs();
     }
 }
