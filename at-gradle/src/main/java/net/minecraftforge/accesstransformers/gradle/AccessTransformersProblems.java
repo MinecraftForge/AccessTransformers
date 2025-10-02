@@ -6,7 +6,6 @@ package net.minecraftforge.accesstransformers.gradle;
 
 import net.minecraftforge.gradleutils.shared.EnhancedProblems;
 import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.attributes.Attribute;
 import org.gradle.api.problems.Severity;
 
 import javax.inject.Inject;
@@ -36,47 +35,47 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigNotDefined(Exception e, Dependency dependency) {
+    RuntimeException accessTransformerConfigNotDefined(Exception e, String dependency) {
         return this.throwing(e, "access-transformer-config-not-defined", "Access transformer config not defined", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact without a configuration file.
-                Dependency: %s""".formatted(Util.toString(dependency)))
+                Dependency: %s""".formatted(dependency))
             .severity(Severity.ERROR)
             .solution("Ensure you have defined your configuration file.")
             .solution("Do not use AccessTransformers if you do not need to.")
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigMissing(Exception e, Dependency dependency, String atFilePath) {
+    RuntimeException accessTransformerConfigMissing(Exception e, String dependency, String atFilePath) {
         return this.throwing(e, "access-transformer-config-missing", "Access transformer config file not found", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file could not be found.
                 Dependency: %s
-                AccessTransformer Config: %s""".formatted(Util.toString(dependency), atFilePath))
+                AccessTransformer Config: %s""".formatted(dependency, atFilePath))
             .severity(Severity.ERROR)
             .solution("Ensure your AccessTransformers configuration file exists.")
             .solution("Do not use AccessTransformers if you do not need to.")
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigUnreadable(Throwable e, Dependency dependency, String atFilePath) {
+    RuntimeException accessTransformerConfigUnreadable(Throwable e, String dependency, String atFilePath) {
         return this.throwing(e, "access-transformer-config-unreadable", "Access transformer config file not read", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file could not be read.
                 This may be due to insufficient file permissions or a corrupted file.
                 Dependency: %s
-                AccessTransformer Config: %s""".formatted(Util.toString(dependency), atFilePath))
+                AccessTransformer Config: %s""".formatted(dependency, atFilePath))
             .severity(Severity.ERROR)
             .solution("Ensure you (and/or Gradle) have proper read/write permissions to the AccessTransformer config file.")
             .solution(HELP_MESSAGE));
     }
 
-    RuntimeException accessTransformerConfigEmpty(Exception e, Dependency dependency, String atFilePath) {
+    RuntimeException accessTransformerConfigEmpty(Exception e, String dependency, String atFilePath) {
         return this.throwing(e, "access-transformer-config-empty", "Access transformer config missing or empty", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file is empty or blank.
                 Dependency: %s
-                AccessTransformer Config: %s""".formatted(Util.toString(dependency), atFilePath))
+                AccessTransformer Config: %s""".formatted(dependency, atFilePath))
             .severity(Severity.ERROR)
             .solution("Ensure your AccessTransformers configuration file contains definitions to be used.")
             .solution("Do not use AccessTransformers if you do not need to.")

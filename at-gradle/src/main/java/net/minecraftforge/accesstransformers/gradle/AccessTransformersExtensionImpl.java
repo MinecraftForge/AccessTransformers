@@ -6,25 +6,22 @@ package net.minecraftforge.accesstransformers.gradle;
 
 import net.minecraftforge.gradleutils.shared.Closures;
 import org.gradle.api.Action;
-import org.gradle.api.InvalidUserDataException;
-import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.artifacts.DependencyScopeConfiguration;
-import org.gradle.api.artifacts.MinimalExternalModuleDependency;
+import org.gradle.api.artifacts.DependencySubstitutions;
 import org.gradle.api.artifacts.ModuleVersionSelector;
 import org.gradle.api.artifacts.ProjectDependency;
+import org.gradle.api.artifacts.component.ComponentSelector;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.attributes.AttributeContainer;
-import org.gradle.api.attributes.HasConfigurableAttributes;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
-import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.ProviderFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,14 +30,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 abstract class AccessTransformersExtensionImpl implements AccessTransformersExtensionInternal {
     private final Project project;
 
     private final AccessTransformersPlugin plugin;
     private final AccessTransformersProblems problems = this.getObjects().newInstance(AccessTransformersProblems.class);
-
-    private final NamedDomainObjectProvider<DependencyScopeConfiguration> constraintsConfiguration;
 
     private @Nullable AccessTransformersContainer container;
 
@@ -56,55 +53,82 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
         this.plugin = plugin;
 
         var configurations = project.getConfigurations();
-        {
-            NamedDomainObjectProvider<DependencyScopeConfiguration> c;
-            try {
-                c = configurations.dependencyScope("accessTransformersDependencyConstraints", configuration -> {
-                    configuration.setDescription("Dependency constraints to enforce access transformer usage.");
-                });
-            } catch (InvalidUserDataException e) {
-                c = configurations.named("accessTransformerDependencyConstraints", DependencyScopeConfiguration.class);
+        configurations.configureEach(configuration -> configuration.withDependencies(dependencies -> {
+            var constraints = configurations
+                .stream()
+                .flatMap(c -> c.getDependencyConstraints().matching(it ->
+                    ((ExtensionAware) it).getExtensions().getExtraProperties().has("__accessTransformers_configs")
+                ).stream())
+                .collect(Collectors.toMap(ModuleVersionSelector::getModule, Function.identity()));
+
+            for (var c : configurations) {
+                for (var dependency : c.getDependencies().matching(it ->
+                    ((ExtensionAware) it).getExtensions().getExtraProperties().has("__accessTransformers_configs")
+                )) {
+                    var configs = (List<AccessTransformersConfigurationImpl>) ((ExtensionAware) dependency).getExtensions().getExtraProperties().get("__accessTransformers_configs");
+                    var attributes = new ArrayList<Attribute<Boolean>>(configs.size());
+                    for (var config : configs) {
+                        attributes.add(this.register(dependency, config));
+                    }
+
+                    if (dependency instanceof ModuleVersionSelector m) {
+                        var constraint = constraints.remove(m.getModule());
+                        if (constraint != null) {
+                            var constraintConfigs = (List<AccessTransformersConfigurationImpl>) ((ExtensionAware) constraint).getExtensions().getExtraProperties().get("__accessTransformers_configs");
+                            for (var config : constraintConfigs) {
+                                attributes.add(this.register(constraint, config));
+                            }
+                        }
+                    }
+
+                    Function<DependencySubstitutions, ComponentSelector> componentSelector;
+                    if (dependency instanceof ProjectDependency p) {
+                        var path = p.getPath();
+                        componentSelector = s -> s.project(path);
+                    } else if (dependency instanceof ModuleVersionSelector m) {
+                        var module = "%s%s".formatted(m.getModule().toString(), m.getVersion() != null ? ":" + m.getVersion() : "");
+                        componentSelector = s -> s.module(module);
+                    } else {
+                        this.problems.reportIllegalTargetDependency(dependency);
+                        return;
+                    }
+
+                    this.apply(configuration, componentSelector, attributes);
+                }
             }
-            this.constraintsConfiguration = c;
-        }
 
-        // FUCK
-        project.getGradle().projectsEvaluated(gradle -> this.finish(project));
-    }
+            for (var constraint : constraints.values()) {
+                var configs = (List<AccessTransformersConfigurationImpl>) ((ExtensionAware) constraint).getExtensions().getExtraProperties().get("__accessTransformers_configs");
+                var attributes = new ArrayList<Attribute<Boolean>>(configs.size());
+                for (var config : configs) {
+                    attributes.add(this.register(constraint, config));
+                }
 
-    @SuppressWarnings({"unchecked", "DataFlowIssue"})
-    private void finish(Project project) {
-        project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().forEach(sourceSet ->
-            Util.forEachClasspath(project.getConfigurations(), sourceSet, c -> c.extendsFrom(this.constraintsConfiguration.get()))
-        );
-
-        project.getConfigurations().forEach(c -> c.getDependencies().matching(it ->
-            ((ExtensionAware) it).getExtensions().getExtraProperties().has("__accessTransformers_configs")
-        ).forEach(dependency -> {
-            Object dependencyNotation = dependency;
-            if (!(dependencyNotation instanceof MinimalExternalModuleDependency)
-                && !(dependencyNotation instanceof ProjectDependency)
-                && dependencyNotation instanceof ModuleVersionSelector module) {
-                dependencyNotation = module.getModule().toString();
+                var module = "%s%s".formatted(constraint.getModule().toString(), constraint.getVersion() != null ? ":" + constraint.getVersion() : "");
+                this.apply(configuration, s -> s.module(module), attributes);
             }
-
-            var configs = (List<AccessTransformersConfigurationImpl>) ((ExtensionAware) dependency).getExtensions().getExtraProperties().get("__accessTransformers_configs");
-            var attributes = new ArrayList<Attribute<Boolean>>(configs.size());
-            for (var i = 0; i < configs.size(); i++) {
-                var config = configs.get(i);
-                attributes.add(this.register(i, dependency, config));
-            }
-
-            this.constraintsConfiguration.get().getDependencyConstraints().add(this.project.getDependencies().getConstraints().create(dependencyNotation, constraint ->
-                constraint.attributes(a -> {
-                    for (var attribute : attributes) a.attribute(attribute, true);
-                })
-            ));
         }));
     }
 
-    private Attribute<Boolean> register(int index, Dependency dependency, AccessTransformersConfigurationImpl config) {
+    private void apply(Configuration configuration, Function<DependencySubstitutions, ComponentSelector> componentSelector, Iterable<Attribute<Boolean>> attributes) {
+        configuration.getResolutionStrategy().dependencySubstitution(s -> {
+            var component = componentSelector.apply(s);
+            s.substitute(component).using(s.variant(component, variant -> {
+                variant.attributes(a -> {
+                    for (var attribute : attributes) {
+                        a.attribute(attribute, true);
+                    }
+                });
+            }));
+        });
+    }
+
+    private Attribute<Boolean> register(Object dependency, AccessTransformersConfigurationImpl config) {
         this.validateATFile(dependency, config.getConfig());
+
+        var ext = this.project.getGradle().getExtensions().getExtraProperties();
+        int index = ext.has("__accessTransformers_automatic_index") ? (int) ext.get("__accessTransformers_automatic_index") + 1 : 0;
+        this.project.getGradle().getExtensions().getExtraProperties().set("__accessTransformers_automatic_index", index);
 
         var attribute = Attribute.of("net.minecraftforge.accesstransformers.automatic." + index, Boolean.class);
         this.project.dependencies(Closures.<DependencyHandler>consumer(this, dependencies -> {
@@ -145,39 +169,41 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
                   .attribute(attribute, value);
     }
 
-    private void validateATFile(Dependency dependency, RegularFileProperty atFileProperty) {
+    private void validateATFile(Object dependency, RegularFileProperty atFileProperty) {
+        var dependencyToString = dependency instanceof Dependency d ? Util.toString(d) : dependency.toString();
+
         // check that consumer has defined the config
         RegularFile atFileSource;
         try {
             atFileSource = atFileProperty.get();
         } catch (IllegalStateException e) {
-            throw this.problems.accessTransformerConfigNotDefined(new RuntimeException("Failed to resolve config file property", e), dependency);
+            throw this.problems.accessTransformerConfigNotDefined(new RuntimeException("Failed to resolve config file property", e), dependencyToString);
         }
 
         // check that the file exists
         var atFile = atFileSource.getAsFile();
         var atFilePath = this.getLayout().getProjectDirectory().getAsFile().toPath().relativize(atFile.toPath()).toString();
         if (!atFile.exists())
-            throw this.problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFilePath)), dependency, atFilePath);
+            throw this.problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFilePath)), dependencyToString, atFilePath);
 
         // check that the file can be read and isn't empty
         String atFileContents;
         try {
             atFileContents = this.getProviders().fileContents(atFileSource).getAsText().get();
         } catch (Throwable e) {
-            throw this.problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFilePath, e)), dependency, atFilePath);
+            throw this.problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFilePath, e)), dependencyToString, atFilePath);
         }
         if (atFileContents.isBlank())
-            throw this.problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFilePath), dependency, atFilePath);
+            throw this.problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFilePath), dependencyToString, atFilePath);
     }
 
     @Override
     public AccessTransformersContainer register(Action<? super AccessTransformersContainer.Options> options) {
-        return this.container = AccessTransformersContainer.register(this.project, options);
+        return this.container = AccessTransformersContainerInternal.register(this.project, options);
     }
 
     private AccessTransformersContainer getContainer() {
-        return this.container == null ? this.container = AccessTransformersContainer.register(this.project, it -> { }) : this.container;
+        return this.container == null ? this.container = AccessTransformersContainerInternal.register(this.project, it -> { }) : this.container;
     }
 
     @Override
@@ -191,7 +217,7 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     @Override
-    public void configure(Dependency dependency, Action<? super AccessTransformersConfiguration> action) {
+    public void configure(Object dependency, Action<? super AccessTransformersConfiguration> action) {
         this.getContainer().configure(dependency, action);
     }
 }

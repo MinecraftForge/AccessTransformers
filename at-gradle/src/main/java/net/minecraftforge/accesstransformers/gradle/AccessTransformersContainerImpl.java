@@ -6,8 +6,6 @@ package net.minecraftforge.accesstransformers.gradle;
 
 import org.gradle.api.Action;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.attributes.HasConfigurableAttributes;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.LogLevel;
@@ -22,8 +20,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 abstract class AccessTransformersContainerImpl implements AccessTransformersContainerInternal {
-    private final AccessTransformersProblems problems;
-
     private final OptionsImpl options;
 
     protected abstract @Inject ObjectFactory getObjects();
@@ -33,8 +29,6 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
         Project project,
         Action<? super AccessTransformersContainer.Options> options
     ) {
-        this.problems = this.getObjects().newInstance(AccessTransformersProblems.class);
-
         options.execute(this.options = this.getObjects().newInstance(OptionsImpl.class, project));
     }
 
@@ -44,11 +38,7 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public void configure(Dependency dependency, Action<? super AccessTransformersConfiguration> action) {
-        if (!(dependency instanceof HasConfigurableAttributes))
-            this.problems.reportIllegalTargetDependency(dependency);
-
+    public void configure(Object dependency, Action<? super AccessTransformersConfiguration> action) {
         var ext = ((ExtensionAware) dependency).getExtensions().getExtraProperties();
         var attributes = ext.has("__accessTransformers_configs")
             ? (List<AccessTransformersConfigurationImpl>) ext.get("__accessTransformers_configs")

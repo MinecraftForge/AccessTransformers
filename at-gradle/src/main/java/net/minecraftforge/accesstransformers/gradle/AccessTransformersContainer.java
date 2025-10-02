@@ -5,9 +5,6 @@
 package net.minecraftforge.accesstransformers.gradle;
 
 import org.gradle.api.Action;
-import org.gradle.api.Project;
-import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.attributes.HasConfigurableAttributes;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.logging.LogLevel;
@@ -19,21 +16,11 @@ import org.jetbrains.annotations.ApiStatus;
 /// Represents a container of dependencies that will be access transformed.
 ///
 /// Containers are created with [AccessTransformersExtension#register(Action)]. Dependencies can be registered to it
-/// inside their configuring closures using [#configure(Dependency)].
+/// inside their configuring closures using [#configure].
 ///
 /// @apiNote This interface is effectively sealed and [must not be extended][ApiStatus.NonExtendable].
 /// @see AccessTransformersExtension
 public sealed interface AccessTransformersContainer permits AccessTransformersContainerInternal, AccessTransformersExtension {
-    /// Registers a new container using the given attribute and options.
-    ///
-    /// @param project The project to make the container for]
-    /// @param options The options to apply
-    /// @return The registered container
-    /// @see AccessTransformersContainer.Options
-    static AccessTransformersContainer register(Project project, Action<? super AccessTransformersContainer.Options> options) {
-        return AccessTransformersContainerInternal.register(project, options);
-    }
-
     /// Gets the access transformer options.
     ///
     /// @return The options
@@ -51,7 +38,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// Configures the given dependency to use this AccessTransformers container.
     ///
     /// @param dependency The dependency to configure AccessTransformers for
-    default void configure(Dependency dependency) {
+    default void configure(Object dependency) {
         this.configure(dependency, it -> { });
     }
 
@@ -59,7 +46,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     ///
     /// @param dependency The dependency to configure AccessTransformers for
     /// @param action A configuring action to modify dependency-level AccessTransformer options
-    void configure(Dependency dependency, Action<? super AccessTransformersConfiguration> action);
+    void configure(Object dependency, Action<? super AccessTransformersConfiguration> action);
 
     /// When initially registering an AccessTransformers container, the consumer should define key information regarding
     /// how AccessTransformers will be used. This interface is used to define that information.

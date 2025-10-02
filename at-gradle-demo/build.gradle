@@ -1,7 +1,10 @@
 plugins {
     id 'java'
+    id 'maven-publish'
     id 'net.minecraftforge.accesstransformers'
 }
+
+group = 'net.minecraftforge'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
@@ -11,5 +14,12 @@ dependencies {
             config = project.file('accesstransformer.cfg')
         }
     }
+
     compileOnly libs.log4j.api
+}
+
+publishing {
+    publications.register('mavenJava', MavenPublication) {
+        from components.java
+    }
 }
