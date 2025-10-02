@@ -22,7 +22,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 abstract class AccessTransformersContainerImpl implements AccessTransformersContainerInternal {
-    private final AccessTransformersPlugin plugin;
     private final AccessTransformersProblems problems;
 
     private final OptionsImpl options;
@@ -34,7 +33,6 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
         Project project,
         Action<? super AccessTransformersContainer.Options> options
     ) {
-        this.plugin = project.getPlugins().getPlugin(AccessTransformersPlugin.class);
         this.problems = this.getObjects().newInstance(AccessTransformersProblems.class);
 
         options.execute(this.options = this.getObjects().newInstance(OptionsImpl.class, project));

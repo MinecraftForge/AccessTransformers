@@ -75,7 +75,7 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     @SuppressWarnings({"unchecked", "DataFlowIssue"})
     private void finish(Project project) {
         project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().forEach(sourceSet ->
-            Util.forClasspathConfigurations(project.getConfigurations(), sourceSet, c -> c.extendsFrom(this.constraintsConfiguration.get()))
+            Util.forEachClasspath(project.getConfigurations(), sourceSet, c -> c.extendsFrom(this.constraintsConfiguration.get()))
         );
 
         project.getConfigurations().forEach(c -> c.getDependencies().matching(it ->
