@@ -5,12 +5,11 @@ plugins {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-accessTransformers.register {
-    logLevel = LogLevel.LIFECYCLE
-    config = project.file('accesstransformer.cfg')
-}
-
 dependencies {
-    implementation accessTransformers.dep(libs.coremods)
+    implementation(libs.coremods) {
+        accessTransformers.configure(it) {
+            config = project.file('accesstransformer.cfg')
+        }
+    }
     compileOnly libs.log4j.api
 }

@@ -28,6 +28,6 @@ abstract class AccessTransformersPlugin extends EnhancedPlugin<Project> {
 
     @Override
     public void setup(Project project) {
-        project.getExtensions().create(AccessTransformersExtension.NAME, AccessTransformersExtensionImpl.class, project);
+        project.getExtensions().create(AccessTransformersExtension.NAME, AccessTransformersExtensionImpl.class, this, project);
     }
 }

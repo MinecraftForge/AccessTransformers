@@ -5,23 +5,21 @@ plugins {
     id 'idea'
     id 'eclipse'
     id 'maven-publish'
-    id 'io.freefair.javadoc-links'
+    //id 'io.freefair.javadoc-links'
+    id 'com.github.ben-manes.versions'
     id 'net.minecraftforge.gradleutils'
     alias libs.plugins.gitversion
     alias libs.plugins.changelog
-    alias libs.plugins.versions
     alias libs.plugins.shadow
     alias libs.plugins.licenser
 }
 
-final projectDisplayName = 'AccessTransformers'
+gradleutils.displayName = 'AccessTransformers'
 final projectVendor = 'Forge Development LLC'
-final projectArtifactId = base.archivesName = 'accesstransformers'
+base.archivesName = 'accesstransformers'
 description = 'Transforms class member access based on specification files.'
 group = 'net.minecraftforge'
 version = gitversion.tagOffset
-
-println "Version: $version"
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(8)
@@ -51,10 +49,10 @@ license {
 
 tasks.named('jar', Jar) {
     final map = [
-        'Specification-Title'   : projectDisplayName,
+        'Specification-Title'   : gradleutils.displayName,
         'Specification-Vendor'  : projectVendor,
         'Specification-Version' : '1',
-        'Implementation-Title'  : projectDisplayName,
+        'Implementation-Title'  : gradleutils.displayName,
         'Implementation-Version': project.version,
         'Implementation-Vendor' : projectVendor
     ]
@@ -80,13 +78,6 @@ tasks.named('shadowJar', ShadowJar) {
     exclude '**/Log4j2Plugins.dat'
 }
 
-tasks.withType(Javadoc).configureEach {
-    options { StandardJavadocDocletOptions options ->
-        options.windowTitle = projectDisplayName + project.version
-        options.tags 'apiNote:a:API Note:', 'implNote:a:Implementation Note:', 'implSpec:a:Implementation Requirements:'
-    }
-}
-
 changelog {
     from '1.0'
     publishAll = true
@@ -104,11 +95,10 @@ publishing {
     publications.register('mavenJava', MavenPublication) {
         from components.java
 
-        artifactId = projectArtifactId
         gradleutils.promote(it)
 
         pom { pom ->
-            name = projectDisplayName
+            name = gradleutils.displayName
             description = project.description
 
             gradleutils.pom.addRemoteDetails(pom)
@@ -125,6 +115,3 @@ publishing {
         }
     }
 }
-
-idea.module { downloadSources = downloadJavadoc = true }
-eclipse.classpath { downloadSources = downloadJavadoc = true }

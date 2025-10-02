@@ -4,52 +4,35 @@
  */
 package net.minecraftforge.accesstransformers.gradle;
 
-import groovy.lang.Closure;
-import groovy.lang.DelegatesTo;
-import groovy.transform.stc.ClosureParams;
-import groovy.transform.stc.SimpleType;
-import net.minecraftforge.gradleutils.shared.Closures;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.attributes.Attribute;
+import org.gradle.api.attributes.HasConfigurableAttributes;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.FileCollection;
-import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.provider.Provider;
-import org.gradle.api.provider.ProviderConvertible;
 import org.gradle.jvm.toolchain.JavaLauncher;
 import org.jetbrains.annotations.ApiStatus;
 
-import java.util.function.UnaryOperator;
-
 /// Represents a container of dependencies that will be access transformed.
 ///
-/// Containers are created with [AccessTransformersExtension#register(Attribute, Action)]. Dependencies can be added
-/// using [#dep(Object, Closure)].
+/// Containers are created with [AccessTransformersExtension#register(Action)]. Dependencies can be registered to it
+/// inside their configuring closures using [#configure(Dependency)].
 ///
 /// @apiNote This interface is effectively sealed and [must not be extended][ApiStatus.NonExtendable].
 /// @see AccessTransformersExtension
 public sealed interface AccessTransformersContainer permits AccessTransformersContainerInternal, AccessTransformersExtension {
     /// Registers a new container using the given attribute and options.
     ///
-    /// @param project   The project to make the container for
-    /// @param attribute The boolean attribute to use for this container
-    /// @param options   The options to apply
+    /// @param project The project to make the container for]
+    /// @param options The options to apply
     /// @return The registered container
     /// @see AccessTransformersContainer.Options
-    static AccessTransformersContainer register(Project project, Attribute<Boolean> attribute, Action<? super AccessTransformersContainer.Options> options) {
-        return AccessTransformersContainerInternal.register(project, attribute, options);
+    static AccessTransformersContainer register(Project project, Action<? super AccessTransformersContainer.Options> options) {
+        return AccessTransformersContainerInternal.register(project, options);
     }
-
-    /// Gets the attribute used by the [transformer][ArtifactAccessTransformer]. It must be unique to this container.
-    ///
-    /// @return The attribute
-    /// @see <a href="https://docs.gradle.org/current/userguide/artifact_transforms.html">Artifact Transforms</a>
-    Attribute<Boolean> getAttribute();
 
     /// Gets the access transformer options.
     ///
@@ -65,103 +48,22 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
         action.execute(this.getOptions());
     }
 
-    /// Queues the given dependency to be transformed by AccessTransformers.
+    /// Configures the given dependency to use this AccessTransformers container.
     ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @param closure            A configuring closure for the dependency
-    /// @return The dependency to be transformed
-    Dependency dep(
-        Object dependencyNotation,
-        @DelegatesTo(Dependency.class)
-        @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure<?> closure
-    );
-
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @param action             A configuring action for the dependency
-    /// @return The dependency to be transformed
-    default Dependency dep(Object dependencyNotation, Action<? super Dependency> action) {
-        return this.dep(dependencyNotation, Closures.action(this, action));
+    /// @param dependency The dependency to configure AccessTransformers for
+    default void configure(Dependency dependency) {
+        this.configure(dependency, it -> { });
     }
 
-    /// Queues the given dependency to be transformed by AccessTransformers.
+    /// Configures the given dependency to use this AccessTransformers container.
     ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @return The dependency to be transformed
-    default Dependency dep(Object dependencyNotation) {
-        return this.dep(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
-    }
+    /// @param dependency The dependency to configure AccessTransformers for
+    /// @param action A configuring action to modify dependency-level AccessTransformer options
+    void configure(Dependency dependency, Action<? super AccessTransformersConfiguration> action);
 
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @param closure            A configuring closure for the dependency
-    /// @return The dependency to be transformed
-    Provider<?> dep(
-        Provider<?> dependencyNotation,
-        @DelegatesTo(Dependency.class)
-        @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure<?> closure
-    );
-
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @param action             A configuring action for the dependency
-    /// @return The dependency to be transformed
-    default Provider<?> dep(Provider<?> dependencyNotation, Action<? super Dependency> action) {
-        return this.dep(dependencyNotation, Closures.action(this, action));
-    }
-
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @return The dependency to be transformed
-    default Provider<?> dep(Provider<?> dependencyNotation) {
-        return this.dep(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
-    }
-
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @param closure            A configuring closure for the dependency
-    /// @return The dependency to be transformed
-    default Provider<?> dep(
-        ProviderConvertible<?> dependencyNotation,
-        @DelegatesTo(Dependency.class)
-        @ClosureParams(value = SimpleType.class, options = "org.gradle.api.artifacts.Dependency")
-        Closure<?> closure
-    ) {
-        return this.dep(dependencyNotation.asProvider(), closure);
-    }
-
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @param action             A configuring action for the dependency
-    /// @return The dependency to be transformed
-    default Provider<?> dep(ProviderConvertible<?> dependencyNotation, Action<? super Dependency> action) {
-        return this.dep(dependencyNotation, Closures.action(this, action));
-    }
-
-    /// Queues the given dependency to be transformed by AccessTransformers.
-    ///
-    /// @param dependencyNotation The dependency (notation)
-    /// @return The dependency to be transformed
-    default Provider<?> dep(ProviderConvertible<?> dependencyNotation) {
-        return this.dep(dependencyNotation, Closures.<Dependency>unaryOperator(this, UnaryOperator.identity()));
-    }
-
-    /// When initially registering an AccessTransformers container, the consumer must define key information regarding
+    /// When initially registering an AccessTransformers container, the consumer should define key information regarding
     /// how AccessTransformers will be used. This interface is used to define that information.
-    sealed interface Options permits AccessTransformersContainerInternal.Options {
-        /// Gets the AccessTransformer configuration to use.
-        ///
-        /// @return The property for the configuration
-        RegularFileProperty getConfig();
-
+    sealed interface Options extends AccessTransformersConfiguration permits AccessTransformersContainerInternal.Options {
         /// Gets the log level to pipe the output of AccessTransformers to.
         ///
         /// @return The property log level to use

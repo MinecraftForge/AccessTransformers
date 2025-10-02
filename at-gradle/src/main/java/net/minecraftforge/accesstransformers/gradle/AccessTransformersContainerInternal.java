@@ -6,13 +6,12 @@ package net.minecraftforge.accesstransformers.gradle;
 
 import org.gradle.api.Action;
 import org.gradle.api.Project;
-import org.gradle.api.attributes.Attribute;
 import org.gradle.api.reflect.HasPublicType;
 import org.gradle.api.reflect.TypeOf;
 
 non-sealed interface AccessTransformersContainerInternal extends AccessTransformersContainer, HasPublicType {
-    static AccessTransformersContainer register(Project project, Attribute<Boolean> attribute, Action<? super Options> options) {
-        return project.getObjects().newInstance(AccessTransformersContainerImpl.class, attribute, options);
+    static AccessTransformersContainer register(Project project, Action<? super Options> options) {
+        return project.getObjects().newInstance(AccessTransformersContainerImpl.class, options);
     }
 
     @Override
