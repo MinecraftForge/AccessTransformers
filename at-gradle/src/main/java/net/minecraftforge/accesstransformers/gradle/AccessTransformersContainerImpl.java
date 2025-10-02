@@ -26,6 +26,8 @@ import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.model.ObjectFactory;
+import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
@@ -151,8 +153,9 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
         Closure<?> closure
     ) {
         return this.project.getDependencies().create(dependencyNotation, closure.compose(Closures.<Dependency>unaryOperator(dependency -> {
-            if (dependency instanceof HasConfigurableAttributes<?> d) {
-                d.attributes(a -> a.attribute(this.attribute, true));
+            if (dependency instanceof HasConfigurableAttributes<?>) {
+                var ext = ((ExtensionAware) dependency).getExtensions().getExtraProperties();
+                ext.set("__at_attribute", this.attribute);
             } else {
                 this.problems.reportIllegalTargetDependency(dependency);
             }
@@ -208,7 +211,7 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
             this.classpath.from(plugin.getTool(Tools.ACCESSTRANSFORMERS));
             //this.mainClass.convention(Tools.ACCESSTRANSFORMERS.getMainClass());
             this.javaLauncher.convention(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()));
-            this.args.convention(Constants.AT_DEFAULT_ARGS);
+            this.args.convention(Constants.ACCESSTRANSFORMERS_DEFAULT_ARGS);
         }
 
         @Override

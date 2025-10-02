@@ -4,11 +4,6 @@
  */
 package net.minecraftforge.accesstransformers.gradle;
 
-import groovy.lang.Closure;
-import groovy.lang.DelegatesTo;
-import groovy.transform.stc.ClosureParams;
-import groovy.transform.stc.SimpleType;
-import net.minecraftforge.gradleutils.shared.Closures;
 import org.gradle.api.Action;
 import org.gradle.api.attributes.Attribute;
 import org.jetbrains.annotations.ApiStatus;

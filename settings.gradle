@@ -2,11 +2,9 @@ import groovy.transform.Field
 
 plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
-
-    // NOTE: We need to load this into the classpath before GradleUtils for the service to load correctly
-    id 'io.freefair.javadoc-links' version '8.14' apply false // https://plugins.gradle.org/plugin/io.freefair.javadoc-links
-
-    id 'net.minecraftforge.gradleutils' version '3.2.5'
+    id 'io.freefair.javadoc-links' version '8.14' apply false
+    id 'com.github.ben-manes.versions' version '0.52.0' apply false
+    id 'net.minecraftforge.gradleutils' version '3.3.11'
 }
 
 rootProject.name = 'AccessTransformers'
@@ -47,11 +45,11 @@ dependencyResolutionManagement {
     //@formatter:off
     versionCatalogs {
         register('libs') {
-            plugin 'versions',   'com.github.ben-manes.versions' version '0.52.0'
+            plugin 'versions',   'com.github.ben-manes.versions' version '0.54.0'
             plugin 'shadow',     'com.gradleup.shadow'           version '9.0.2'
             plugin 'licenser',   'net.minecraftforge.licenser'   version '1.2.0'
-            plugin 'gitversion', 'net.minecraftforge.gitversion' version '3.0.3'
-            plugin 'changelog',  'net.minecraftforge.changelog'  version '3.0.3'
+            plugin 'gitversion', 'net.minecraftforge.gitversion' version '3.1.0'
+            plugin 'changelog',  'net.minecraftforge.changelog'  version '3.1.1'
 
             version 'asm', '9.7'
             library 'asm',         'org.ow2.asm', 'asm'         versionRef 'asm'

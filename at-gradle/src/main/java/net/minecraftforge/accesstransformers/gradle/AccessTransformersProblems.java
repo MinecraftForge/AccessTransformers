@@ -25,7 +25,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
     void reportIllegalTargetDependency(Dependency dependency) {
         var dependencyToString = Util.toString(dependency);
         this.getLogger().error("ERROR: Cannot access transform target dependency: {}", dependencyToString);
-        this.getReporter().report(this.id("access-transformer-illegal-dependency-target", "Cannot access transform target dependency"), spec -> spec
+        this.report("access-transformer-illegal-dependency-target", "Cannot access transform target dependency", spec -> spec
             .details("""
                 Cannot apply Access Transformers to a dependency that cannot be configured with attributes.
                 Dependency: %s"""
@@ -48,7 +48,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
     }
 
     RuntimeException accessTransformerConfigMissing(Exception e, Attribute<Boolean> attribute, String atFilePath) {
-        return this.getReporter().throwing(e, this.id("access-transformer-config-missing", "Access transformer config file not found"), spec -> spec
+        return this.throwing(e, "access-transformer-config-missing", "Access transformer config file not found", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file could not be found.
                 Attribute: %s
@@ -60,7 +60,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
     }
 
     RuntimeException accessTransformerConfigUnreadable(Throwable e, Attribute<Boolean> attribute, String atFilePath) {
-        return this.getReporter().throwing(e, this.id("access-transformer-config-unreadable", "Access transformer config file not read"), spec -> spec
+        return this.throwing(e, "access-transformer-config-unreadable", "Access transformer config file not read", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file could not be read.
                 This may be due to insufficient file permissions or a corrupted file.
@@ -72,7 +72,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
     }
 
     RuntimeException accessTransformerConfigEmpty(Exception e, Attribute<Boolean> attribute, String atFilePath) {
-        return this.getReporter().throwing(e, this.id("access-transformer-config-empty", "Access transformer config missing or empty"), spec -> spec
+        return this.throwing(e, "access-transformer-config-empty", "Access transformer config missing or empty", spec -> spec
             .details("""
                 The access transformer cannot transform the input artifact because the configuration file is empty or blank.
                 Attribute: %s
@@ -85,7 +85,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
 
     void reportAccessTransformerCannotValidateOutput(Exception e, File inJar, File atFile, File outJar, File logFile) {
         this.getLogger().warn("WARNING: Access transformer completed, but failed to validate the output. Output jar: {}", outJar.getAbsolutePath());
-        this.getReporter().report(this.id("access-transformer-output-validation-failed", "Failed to validate the access transformed output"), spec -> spec
+        this.report("access-transformer-output-validation-failed", "Failed to validate the access transformed output", spec -> spec
             .details("""
                 The access transformer completed the transformation, but failed to validate the output.
                 While the output JAR may have been created successfully, it cannot be determined if any transformations were made.
@@ -103,7 +103,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
     }
 
     RuntimeException accessTransformerCannotWriteOutput(Exception e, Path output) {
-        return this.getReporter().throwing(e, this.id("access-transformer-output-write-failed", "Failed to write the access transformed output"), spec -> spec
+        return this.throwing(e, "access-transformer-output-write-failed", "Failed to write the access transformed output", spec -> spec
             .details("""
                 The access transformer completed the transformation, but failed to write the output to Gradle.
                 This could potentially be caused the lack of read/write permissions in the build folder or Gradle caches (`~/.gradle`).
@@ -116,7 +116,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
 
     void reportAccessTransformerOutputIdentical(File inJar, File atFile, File outJar, File logFile) {
         this.getLogger().warn("WARNING: Access transformer completed, but the output bytes are the same as the input. Output jar: {}", outJar.getAbsolutePath());
-        this.getReporter().report(this.id("access-transformer-output-identical", "Access transformer output identical to input"), spec -> spec
+        this.report("access-transformer-output-identical", "Access transformer output identical to input", spec -> spec
             .details("""
                 The access transformer completed the transformation, but the output bytes are the same as the input.
                 This could potentially be caused by an empty or invalid access transformer configuration.
@@ -132,7 +132,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
     }
 
     RuntimeException accessTransformerFailed(RuntimeException e, File inJar, File atFile, File logFile) {
-        return this.getReporter().throwing(e, this.id("access-transformer-failed", "Access transformer failed"), spec -> spec
+        return this.throwing(e, "access-transformer-failed", "Access transformer failed", spec -> spec
             .details("""
                 The access transformer failed to apply the transformations.
                 This could potentially be caused by an invalid access transformer configuration.
