@@ -54,14 +54,16 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
 
         var configurations = project.getConfigurations();
         configurations.configureEach(configuration -> configuration.withDependencies(dependencies -> {
-            var constraints = configurations
+            var hierarchy = configuration.getHierarchy();
+
+            var constraints = hierarchy
                 .stream()
                 .flatMap(c -> c.getDependencyConstraints().matching(it ->
                     ((ExtensionAware) it).getExtensions().getExtraProperties().has("__accessTransformers_configs")
                 ).stream())
                 .collect(Collectors.toMap(ModuleVersionSelector::getModule, Function.identity()));
 
-            for (var c : configurations) {
+            for (var c : hierarchy) {
                 for (var dependency : c.getDependencies().matching(it ->
                     ((ExtensionAware) it).getExtensions().getExtraProperties().has("__accessTransformers_configs")
                 )) {
