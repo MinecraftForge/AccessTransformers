@@ -166,8 +166,9 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
         return attribute;
     }
 
-    private static void setAttributes(AttributeContainer attributes, Attribute<Boolean> attribute, boolean value) {
+    private void setAttributes(AttributeContainer attributes, Attribute<Boolean> attribute, boolean value) {
         attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                  .attribute(Category.CATEGORY_ATTRIBUTE, this.getObjects().named(Category.class, Category.LIBRARY))
                   .attribute(attribute, value);
     }
 
