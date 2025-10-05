@@ -13,7 +13,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
-interface AccessTransformersConfigurationInternal extends AccessTransformersConfiguration, HasPublicType {
+non-sealed interface AccessTransformersConfigurationInternal extends AccessTransformersConfiguration, HasPublicType {
     String CONFIGS_EXT_PROPERTY = "__accessTransformers_configs";
 
     static boolean has(Object object) {
