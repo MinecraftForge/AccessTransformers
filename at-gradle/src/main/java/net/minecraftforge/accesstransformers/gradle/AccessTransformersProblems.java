@@ -5,7 +5,10 @@
 package net.minecraftforge.accesstransformers.gradle;
 
 import net.minecraftforge.gradleutils.shared.EnhancedProblems;
+import org.gradle.api.InvalidUserDataException;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.problems.Severity;
 
 import javax.inject.Inject;
@@ -82,6 +85,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
             .solution(HELP_MESSAGE));
     }
 
+    // TODO [AccessTransformers] Add validation support to AccessTransformers.
     void reportAccessTransformerCannotValidateOutput(Exception e, File inJar, File atFile, File outJar, File logFile) {
         this.getLogger().warn("WARNING: Access transformer completed, but failed to validate the output. Output jar: {}", outJar.getAbsolutePath());
         this.report("access-transformer-output-validation-failed", "Failed to validate the access transformed output", spec -> spec
@@ -113,6 +117,7 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
             .solution(HELP_MESSAGE));
     }
 
+    // TODO [AccessTransformers] Add validation support to AccessTransformers.
     void reportAccessTransformerOutputIdentical(File inJar, File atFile, File outJar, File logFile) {
         this.getLogger().warn("WARNING: Access transformer completed, but the output bytes are the same as the input. Output jar: {}", outJar.getAbsolutePath());
         this.report("access-transformer-output-identical", "Access transformer output identical to input", spec -> spec
@@ -142,6 +147,41 @@ abstract class AccessTransformersProblems extends EnhancedProblems {
             .severity(Severity.ERROR)
             .fileLocation(atFile.getAbsolutePath())
             .solution("Check your access transformer configuration file and ensure it is valid.")
+            .solution(HELP_MESSAGE)
+        );
+    }
+
+    void reportDependencyWithoutVersion(InvalidUserDataException e, Dependency dependency) {
+        this.report("dependency-constraint-without-version", "Cannot apply Access Transformers on an unrealized dependency", spec -> spec
+            .details("""
+                Access Transformers was requested to be used on an unversioned dependency.
+                However, this is not supported by the Access Transformers Gradle API.
+                The Access Transformers Gradle API uses dependency substitutions to realize access transformers on dependencies, and they require any specified module to have a version.
+                Dependency: %s"""
+                .formatted(Util.toString(dependency)))
+            .withException(e)
+            .severity(Severity.ERROR)
+            .solution("Remove the configuration of Access Transformers from the dependency if it is not needed in this project.")
+            .solution("Add a version to the dependency.")
+            .solution("Use the ArtifactAccessTransformer transform directly in your setup, as your buildscript may be too complex to use the Access Transformers Gradle API.")
+            .solution(HELP_MESSAGE)
+        );
+    }
+
+    void reportDependencyConstraintWithoutVersion(InvalidUserDataException e, ModuleIdentifier constraint, Configuration configuration) {
+        this.report("dependency-constraint-without-version", "Cannot apply Access Transformers on an unrealized, unversioned dependency constraint", spec -> spec
+            .details("""
+                Access Transformers was requested to be used on an unversioned dependency constraint.
+                However, there are no (transitive) dependencies in '%s' or its hierarchy that can currently fulfill this constraint.
+                The Access Transformers Gradle API uses dependency substitutions to realize access transformers on dependencies, and they require any specified module to have a version.
+                Unversioned dependency constraints can only be used with Access Transformers if the dependency is already in the dependency graph (i.e. as a transitive dependency).
+                Module: %s"""
+                .formatted(configuration.getName(), constraint))
+            .withException(e)
+            .severity(Severity.ERROR)
+            .solution("Remove the configuration of Access Transformers from the dependency constraint if it is not needed in this project.")
+            .solution("Add a dependency to the project (that includes a transitive dependency) which fulfills the dependency constraint.")
+            .solution("Use the ArtifactAccessTransformer transform directly in your setup, as your buildscript may be too complex to use the Access Transformers Gradle API.")
             .solution(HELP_MESSAGE)
         );
     }

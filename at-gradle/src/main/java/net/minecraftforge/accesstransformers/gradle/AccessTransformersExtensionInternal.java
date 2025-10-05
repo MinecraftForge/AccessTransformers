@@ -8,6 +8,8 @@ import org.gradle.api.reflect.HasPublicType;
 import org.gradle.api.reflect.TypeOf;
 
 non-sealed interface AccessTransformersExtensionInternal extends AccessTransformersExtension, HasPublicType {
+    String INDEX_EXT_PROPERTY = "__accessTransformers_automatic_index";
+
     @Override
     default TypeOf<?> getPublicType() {
         return TypeOf.typeOf(AccessTransformersExtension.class);

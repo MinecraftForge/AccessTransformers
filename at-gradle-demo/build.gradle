@@ -9,11 +9,17 @@ group = 'net.minecraftforge'
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 dependencies {
-    implementation(libs.coremods) {
-        accessTransformers.configure(it) {
-            config = project.file('accesstransformer.cfg')
+    constraints {
+        // This can be used on transitive dependencies without actually adding them to your project's dependency tree.
+        // While they are added to the module metadata, they don't have any attributes.
+        implementation('net.minecraftforge:coremods') {
+            accessTransformers.configure(it) {
+                config = project.file('accesstransformer.cfg')
+            }
         }
     }
+
+    implementation(libs.coremods)
 
     compileOnly libs.log4j.api
 }

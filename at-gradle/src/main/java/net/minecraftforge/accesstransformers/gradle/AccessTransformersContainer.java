@@ -45,7 +45,7 @@ public sealed interface AccessTransformersContainer permits AccessTransformersCo
     /// Configures the given dependency to use this AccessTransformers container.
     ///
     /// @param dependency The dependency to configure AccessTransformers for
-    /// @param action A configuring action to modify dependency-level AccessTransformer options
+    /// @param action     A configuring action to modify dependency-level AccessTransformer options
     void configure(Object dependency, Action<? super AccessTransformersConfiguration> action);
 
     /// When initially registering an AccessTransformers container, the consumer should define key information regarding

@@ -10,14 +10,11 @@ import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.model.ObjectFactory;
-import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.jvm.toolchain.JavaLauncher;
 
 import javax.inject.Inject;
-import java.util.LinkedList;
-import java.util.List;
 
 abstract class AccessTransformersContainerImpl implements AccessTransformersContainerInternal {
     private final OptionsImpl options;
@@ -39,18 +36,10 @@ abstract class AccessTransformersContainerImpl implements AccessTransformersCont
 
     @Override
     public void configure(Object dependency, Action<? super AccessTransformersConfiguration> action) {
-        var ext = ((ExtensionAware) dependency).getExtensions().getExtraProperties();
-        var attributes = ext.has("__accessTransformers_configs")
-            ? (List<AccessTransformersConfigurationImpl>) ext.get("__accessTransformers_configs")
-            : null;
-        if (attributes == null) {
-            attributes = new LinkedList<>();
-            ext.set("__accessTransformers_configs", attributes);
-        }
-
         var config = new AccessTransformersConfigurationImpl(this.getObjects().fileProperty().convention(this.options.config), this.options);
         action.execute(config);
-        attributes.add(config);
+
+        AccessTransformersConfigurationInternal.get(dependency).add(config);
     }
 
     static abstract class OptionsImpl implements Options {
