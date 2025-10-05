@@ -20,8 +20,6 @@ import org.gradle.api.attributes.Attribute;
 import org.gradle.api.attributes.AttributeContainer;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.file.ProjectLayout;
-import org.gradle.api.file.RegularFile;
-import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.model.ObjectFactory;
@@ -29,8 +27,6 @@ import org.gradle.api.provider.ProviderFactory;
 import org.jetbrains.annotations.Nullable;
 
 import javax.inject.Inject;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -233,7 +229,7 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     private Attribute<Boolean> register(Object dependency, AccessTransformersConfigurationInternal config) {
-        this.validateConfigFile(dependency, config.getConfig());
+        ArtifactAccessTransformer.validateConfig(this.problems, this.getProviders(), dependency, config.getConfig());
 
         int index = getIndex();
         var attribute = Attribute.of("net.minecraftforge.accesstransformers.automatic." + index, Boolean.class);
@@ -279,34 +275,6 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
             : 0;
         gradle.getExtensions().getExtraProperties().set(INDEX_EXT_PROPERTY, index);
         return index;
-    }
-
-    private void validateConfigFile(Object dependency, RegularFileProperty atFileProperty) {
-        var dependencyToString = dependency instanceof Dependency d ? Util.toString(d) : dependency.toString();
-
-        // check that consumer has defined the config
-        RegularFile atFileSource;
-        try {
-            atFileSource = atFileProperty.get();
-        } catch (IllegalStateException e) {
-            throw this.problems.accessTransformerConfigNotDefined(new RuntimeException("Failed to resolve config file property", e), dependencyToString);
-        }
-
-        // check that the file exists
-        var atFile = atFileSource.getAsFile();
-        var atFilePath = this.getLayout().getProjectDirectory().getAsFile().toPath().relativize(atFile.toPath()).toString();
-        if (!atFile.exists())
-            throw this.problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFilePath)), dependencyToString, atFilePath);
-
-        // check that the file can be read and isn't empty
-        String atFileContents;
-        try {
-            atFileContents = this.getProviders().fileContents(atFileSource).getAsText().get();
-        } catch (Throwable e) {
-            throw this.problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFilePath, e)), dependencyToString, atFilePath);
-        }
-        if (atFileContents.isBlank())
-            throw this.problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFilePath), dependencyToString, atFilePath);
     }
 
     @Override

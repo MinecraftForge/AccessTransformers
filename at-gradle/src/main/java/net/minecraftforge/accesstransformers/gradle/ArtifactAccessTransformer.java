@@ -5,6 +5,9 @@
 package net.minecraftforge.accesstransformers.gradle;
 
 import net.minecraftforge.util.hash.HashStore;
+import org.gradle.api.Action;
+import org.gradle.api.Project;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.TransformAction;
 import org.gradle.api.artifacts.transform.TransformOutputs;
@@ -21,6 +24,7 @@ import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Console;
 import org.gradle.api.tasks.Input;
@@ -33,6 +37,7 @@ import org.gradle.process.ProcessExecutionException;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -79,7 +84,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         ///
         /// @return A property for the main class to use
         /// @apiNote This is only required if you are providing a custom AccessTransformers which is not a single jar.
-        @Optional @Input Property<String> getMainClass();
+        @Input @Optional Property<String> getMainClass();
 
         /// The **executable path** of the Java launcher to use to run AccessTransformers.
         ///
@@ -109,6 +114,37 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         ///
         /// @return A property for the caches directory
         @InputDirectory DirectoryProperty getCachesDir();
+
+        /// Returns an action that sets the default values for the parameters of the artifact access transformer.
+        ///
+        /// @param project The project using AccessTransformers
+        /// @apiNote Using this in [org.gradle.api.artifacts.dsl.DependencyHandler#registerTransform(Class, Action)]
+        /// after the project has evaluated **will not** populate some crucial defaults, as the project is inaccessible
+        /// after configuration. If you use this, make sure you do before the project has finished evaluation so that
+        /// the property values can be finalized into the cache.
+        static Action<? super Parameters> defaults(Project project) {
+            return defaults(project, it -> { });
+        }
+
+        /// Returns an action that sets the default values for the parameters of the artifact access transformer.
+        ///
+        /// @param project The project using AccessTransformers
+        /// @param action  An action to run after the defaults are set
+        /// @apiNote Using this in [org.gradle.api.artifacts.dsl.DependencyHandler#registerTransform(Class, Action)]
+        /// after the project has evaluated **will not** populate some crucial defaults, as the project is inaccessible
+        /// after configuration. If you use this, make sure you do before the project has finished evaluation so that
+        /// the property values can be finalized into the cache.
+        static Action<? super Parameters> defaults(Project project, Action<? super Parameters> action) {
+            var plugin = project.getPlugins().getPlugin(AccessTransformersPlugin.class);
+            return parameters -> {
+                parameters.getClasspath().from(plugin.getTool(Tools.ACCESSTRANSFORMERS));
+                parameters.getMainClass().value(Tools.ACCESSTRANSFORMERS.getMainClass());
+                parameters.getJavaLauncher().value(Util.launcherFor(project, Tools.ACCESSTRANSFORMERS.getJavaVersion()).map(Util.LAUNCHER_EXECUTABLE));
+                parameters.getArgs().value(Constants.ACCESSTRANSFORMERS_DEFAULT_ARGS);
+                parameters.getCachesDir().value(plugin.localCaches());
+                action.execute(parameters);
+            };
+        }
     }
 
     private final AccessTransformersProblems problems;
@@ -238,6 +274,57 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         } catch (IOException e) {
             throw this.problems.accessTransformerCannotWriteOutput(e, output);
         }
+    }
+
+    /// Validates the given AccessTransformer configuration file to ensure it is ready for use by the artifact
+    /// transformer.
+    ///
+    /// @param project    The project using AccessTransformers
+    /// @param dependency The dependency to be transformed
+    /// @param config     The AccessTransformer configuration file
+    /// @throws RuntimeException If validation of the configuration file failed
+    public static void validateConfig(Project project, Object dependency, RegularFileProperty config) {
+        validateConfig(project.getObjects(), project.getProviders(), dependency, config);
+    }
+
+    /// Validates the given AccessTransformer configuration file to ensure it is ready for use by the artifact
+    /// transformer.
+    ///
+    /// @param objects    The object factory for debugging
+    /// @param providers  The provider factory for debugging
+    /// @param dependency The dependency to be transformed
+    /// @param config     The AccessTransformer configuration file
+    /// @throws RuntimeException If validation of the configuration file failed
+    public static void validateConfig(ObjectFactory objects, ProviderFactory providers, Object dependency, RegularFileProperty config) {
+        validateConfig(objects.newInstance(AccessTransformersProblems.class), providers, dependency, config);
+    }
+
+    static void validateConfig(AccessTransformersProblems problems, ProviderFactory providers, Object dependency, RegularFileProperty atFileProperty) {
+        var dependencyToString = dependency instanceof Dependency d ? Util.toString(d) : dependency.toString();
+
+        // check that consumer has defined the config
+        RegularFile atFileSource;
+        try {
+            atFileSource = atFileProperty.get();
+        } catch (IllegalStateException e) {
+            throw problems.accessTransformerConfigNotDefined(new RuntimeException("Failed to resolve config file property", e), dependencyToString);
+        }
+
+        // check that the file exists
+        var atFile = atFileSource.getAsFile();
+        var atFilePath = atFile.getPath();
+        if (!atFile.exists())
+            throw problems.accessTransformerConfigMissing(new RuntimeException(new FileNotFoundException("Config file does not exist at " + atFilePath)), dependencyToString, atFilePath);
+
+        // check that the file can be read and isn't empty
+        String atFileContents;
+        try {
+            atFileContents = providers.fileContents(atFileSource).getAsText().get();
+        } catch (Throwable e) {
+            throw problems.accessTransformerConfigUnreadable(new RuntimeException(new IOException("Failed to read config file at " + atFilePath, e)), dependencyToString, atFilePath);
+        }
+        if (atFileContents.isBlank())
+            throw problems.accessTransformerConfigEmpty(new IllegalStateException("Config file must not be blank at " + atFilePath), dependencyToString, atFilePath);
     }
 
     /// Uses [String#replace(CharSequence, CharSequence)] but with pre-compiled patterns provided in the given map.
