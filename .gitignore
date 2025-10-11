@@ -29,4 +29,4 @@
 /forge-deobfed.jar
 /out.log
 /**/logs/
-/test_results.html
+at-test/aggregate-test-results.html

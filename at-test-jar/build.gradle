@@ -3,6 +3,7 @@ plugins {
     id 'idea'
     id 'eclipse'
     alias libs.plugins.licenser
+    alias libs.plugins.gradleutils
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(16)
@@ -13,11 +14,8 @@ license {
     exclude '**/*.properties'
 }
 
-idea.module { downloadSources = downloadJavadoc = true }
-
 // Hack eclipse into knowing that the gradle deps are modules
 eclipse.classpath {
-    downloadSources = downloadJavadoc = true
     containers 'org.eclipse.buildship.core.gradleclasspathcontainer'
     file.whenMerged { entries.findAll { it.kind == 'lib' || it.path == 'org.eclipse.buildship.core.gradleclasspathcontainer' }.each { it.entryAttributes['module'] = 'true' } }
 }

@@ -3,6 +3,7 @@ plugins {
     id 'idea'
     id 'eclipse'
     alias libs.plugins.licenser
+    alias libs.plugins.gradleutils
 }
 
 configurations {
@@ -59,6 +60,3 @@ tasks.register('jmh', JavaExec) {
     args '-rff', "${rootProject.layout.buildDirectory.asFile.get()}/jmh_results.txt" // results file
     args 'net.minecraftforge.accesstransformer.benchmarks.AccessTransformerListBenchmark'
 }
-
-idea.module { downloadSources = downloadJavadoc = true }
-eclipse.classpath { downloadSources = downloadJavadoc = true }

@@ -3,6 +3,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     alias libs.plugins.licenser
+    alias libs.plugins.gradleutils
 }
 
 java {
@@ -29,11 +30,8 @@ dependencies {
     testRuntimeOnly testLibs.bundles.junit.runtime
 }
 
-idea.module { downloadSources = downloadJavadoc = true }
-
 // Hack eclipse into knowing that the gradle deps are modules
 eclipse.classpath {
-    downloadSources = downloadJavadoc = true
     containers 'org.eclipse.buildship.core.gradleclasspathcontainer'
     file.whenMerged { entries.findAll { it.kind == 'lib' || it.path == 'org.eclipse.buildship.core.gradleclasspathcontainer' }.each { it.entryAttributes['module'] = 'true' } }
 }
