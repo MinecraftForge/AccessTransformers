@@ -118,6 +118,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         /// Returns an action that sets the default values for the parameters of the artifact access transformer.
         ///
         /// @param project The project using AccessTransformers
+        /// @return A configuring action to use in [org.gradle.api.artifacts.dsl.DependencyHandler#registerTransform(Class, Action)]
         /// @apiNote Using this in [org.gradle.api.artifacts.dsl.DependencyHandler#registerTransform(Class, Action)]
         /// after the project has evaluated **will not** populate some crucial defaults, as the project is inaccessible
         /// after configuration. If you use this, make sure you do before the project has finished evaluation so that
@@ -130,6 +131,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         ///
         /// @param project The project using AccessTransformers
         /// @param action  An action to run after the defaults are set
+        /// @return A configuring action to use in [org.gradle.api.artifacts.dsl.DependencyHandler#registerTransform(Class, Action)]
         /// @apiNote Using this in [org.gradle.api.artifacts.dsl.DependencyHandler#registerTransform(Class, Action)]
         /// after the project has evaluated **will not** populate some crucial defaults, as the project is inaccessible
         /// after configuration. If you use this, make sure you do before the project has finished evaluation so that
@@ -216,7 +218,7 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
         } else {
             LOGGER.info("Access transformer started. Input jar: {}", inJar.getAbsolutePath());
             var result = this.getExecOperations().javaexec(exec -> {
-                var logLevel = parameters.getLogLevel().get();
+                var logLevel = parameters.getLogLevel().getOrElse(LogLevel.INFO);
                 var stream = Util.toLog(s -> LOGGER.log(logLevel, s));
                 exec.setStandardOutput(stream);
                 exec.setErrorOutput(stream);

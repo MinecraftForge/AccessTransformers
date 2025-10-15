@@ -48,8 +48,6 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
 
     protected abstract @Inject ObjectFactory getObjects();
 
-    protected abstract @Inject ProjectLayout getLayout();
-
     protected abstract @Inject ProviderFactory getProviders();
 
     @Inject
@@ -61,6 +59,8 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     private void apply(Configuration configuration) {
+        LOGGER.debug("Configuration '{}' is queued for resolution! Scanning for AccessTransformer requests.", configuration.getName());
+
         var hierarchy = configuration.getHierarchy();
 
         // AccessTransformers can be configured for constraints to not pollute the dependency tree.
@@ -172,6 +172,7 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     private void applyToProject(Configuration configuration, String path, Iterable<Attribute<Boolean>> attributes) {
+        LOGGER.info("Applying AccessTransformers attributes for project dependency: {}", path);
         configuration.getResolutionStrategy().dependencySubstitution(s -> {
             var component = s.project(path);
             var substitute = s.substitute(component);
@@ -185,6 +186,7 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     private void applyToDependency(Configuration configuration, Dependency dependency, String moduleSelector, Iterable<Attribute<Boolean>> attributes) {
+        LOGGER.info("Applying AccessTransformers attributes for dependency: {}", dependency);
         configuration.getResolutionStrategy().dependencySubstitution(s -> {
             var component = s.module(moduleSelector);
             var substitute = s.substitute(component);
@@ -207,6 +209,7 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
     }
 
     private void applyToConstraint(Configuration configuration, ModuleIdentifier module, String moduleSelector, Iterable<Attribute<Boolean>> attributes) {
+        LOGGER.info("Applying AccessTransformers attributes for dependency constraint: {}", module);
         configuration.getResolutionStrategy().dependencySubstitution(s -> {
             var component = s.module(moduleSelector);
             var substitute = s.substitute(component);
