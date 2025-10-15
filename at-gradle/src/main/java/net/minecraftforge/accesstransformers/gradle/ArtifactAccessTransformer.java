@@ -192,6 +192,15 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
     /// @param outputs The outputs for this transform action
     @Override
     public void transform(TransformOutputs outputs) {
+        try {
+            this.exec(outputs);
+        } catch (Exception e) {
+            LOGGER.error("Failed to apply AccessTransformers to {}", this.getInputArtifact().get().getAsFile().getName(), e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void exec(TransformOutputs outputs) throws Exception {
         var parameters = this.getParameters();
 
         // inputs
