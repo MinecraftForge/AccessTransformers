@@ -19,7 +19,6 @@ import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.attributes.AttributeContainer;
 import org.gradle.api.attributes.Category;
-import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.model.ObjectFactory;
@@ -112,8 +111,8 @@ abstract class AccessTransformersExtensionImpl implements AccessTransformersExte
             // Check if we have a constraint that matches the dependency, so we can combine AT attributes.
             // It's a tad paranoid, but is better than risking having multiple dependency substitutions for the same module.
             {
-                var itor = dependencyConstraints.iterator();
-                for (var constraint = itor.next(); itor.hasNext(); constraint = itor.next()) {
+                for (var itor = dependencyConstraints.iterator(); itor.hasNext(); ) {
+                    var constraint = itor.next();
                     if (!(Objects.equals(constraint.getModule(), module.getModule()) && Objects.equals(constraint.getVersion(), module.getVersion())))
                         continue;
 
