@@ -205,7 +205,12 @@ public abstract class ArtifactAccessTransformer implements TransformAction<Artif
 
         // inputs
         var inJar = this.getInputArtifact().get().getAsFile();
-        var atFile = parameters.getConfig().map(RegularFile::getAsFile).get();
+        var atFile = parameters.getConfig().getAsFile().getOrNull();
+        if (atFile == null) {
+            // No config so just return the input file
+            outputs.file(inJar);
+            return;
+        }
 
         // outputs
         var outJarName = inJar.getName().replace(".jar", "-at.jar");
