@@ -81,6 +81,7 @@ public class TransformerProcessor {
             Files.deleteIfExists(outputJarPath);
         } catch (IOException e) {
             LOGGER.error(AXFORM_MARKER,"Deleting existing out JAR", e);
+            sneak(e);
         }
         processJar(inputJarPath, outputJarPath, atFilePaths);
         LOGGER.info(AXFORM_MARKER,"JAR transformation complete {}", outputJarPath);
@@ -96,6 +97,16 @@ public class TransformerProcessor {
             AccessTransformerEngine.INSTANCE.addResource(path, path.getFileName().toString());
             LOGGER.debug(AXFORM_MARKER,"Loaded access transformer file {}", path);
         });
+
+        final Path parent = outputJarPath.getParent();
+        if (parent != null & !Files.exists(parent)) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                LOGGER.error(AXFORM_MARKER,"Creating Parents", e);
+                sneak(e);
+            }
+        }
 
         final URI toUri = outputJarPath.toUri();
         final URI outJarURI = URI.create("jar:"+toUri.toASCIIString());
@@ -125,20 +136,29 @@ public class TransformerProcessor {
                                     }
                                 } catch (IOException e) {
                                     LOGGER.error(AXFORM_MARKER,"Reading {}", path, e);
+                                    sneak(e);
                                 }
                             } else if (!Files.exists(outPath)){
                                 try {
                                     Files.copy(path, outPath);
                                 } catch (IOException e) {
                                     LOGGER.error(AXFORM_MARKER,"Copying {}", path, e);
+                                    sneak(e);
                                 }
                             }
                         });
             } catch (IOException e) {
                 LOGGER.error(AXFORM_MARKER,"Reading JAR", e);
+                sneak(e);
             }
         } catch (IOException e) {
             LOGGER.error(AXFORM_MARKER,"Writing JAR", e);
+            sneak(e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <R, E extends Throwable> R sneak(Throwable t) throws E {
+        throw (E) t;
     }
 }
