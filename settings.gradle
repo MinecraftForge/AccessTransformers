@@ -35,7 +35,7 @@ dependencyResolutionManagement.versionCatalogs {
         plugin 'gitversion',  'net.minecraftforge.gitversion'  version '3.1.1'
         plugin 'changelog',   'net.minecraftforge.changelog'   version '3.1.2'
 
-        version 'asm', '9.7'
+        version 'asm', '9.9.1'
         library 'asm',         'org.ow2.asm', 'asm'         versionRef 'asm'
         library 'asm-tree',    'org.ow2.asm', 'asm-tree'    versionRef 'asm'
         library 'asm-commons', 'org.ow2.asm', 'asm-commons' versionRef 'asm'
