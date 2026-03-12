@@ -34,6 +34,7 @@ public class TransformerProcessor {
         final ArgumentAcceptingOptionSpec<Path> atFiles = optionParser.acceptsAll(list("atfile", "atFile"), "Access Transformer File").withRequiredArg().withValuesConvertedBy(new PathConverter(PathProperties.FILE_EXISTING)).required();
         final ArgumentAcceptingOptionSpec<Path> outputJar = optionParser.accepts("outJar", "Output JAR file").withRequiredArg().withValuesConvertedBy(new PathConverter());
         final ArgumentAcceptingOptionSpec<String> logFilePath = optionParser.accepts("logFile", "Log file for logging").withRequiredArg();
+        final OptionSpec<Void> help = optionParser.accepts("help").forHelp();
 
         final OptionSet optionSet;
         Path inputJarPath;
@@ -41,6 +42,11 @@ public class TransformerProcessor {
         List<Path> atFilePaths;
         try {
             optionSet = optionParser.parse(args);
+            if (optionSet.has(help)) {
+                optionParser.printHelpOn(System.out);
+                return;
+            }
+
             final String logFile = logFilePath.value(optionSet);
             if (logFile != null) {
                 // configure a custom logfile with debug level logging
@@ -69,6 +75,10 @@ public class TransformerProcessor {
             atFilePaths = atFiles.values(optionSet).stream().map(Path::toAbsolutePath).collect(Collectors.toList());
         } catch (Exception e) {
             LOGGER.error(AXFORM_MARKER,"Option Parsing Error", e);
+            try {
+                optionParser.printHelpOn(System.out);
+            } catch (IOException e1) {
+            }
             return;
         }
         LOGGER.info(AXFORM_MARKER, "Access Transformer processor running version {}", TransformerProcessor.class.getPackage().getImplementationVersion());
