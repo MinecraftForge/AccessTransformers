@@ -81,6 +81,18 @@ gradlePlugin {
     }
 }
 
+testing {
+    suites {
+        functionalTest(JvmTestSuite) {
+            useJUnitJupiter()
+            dependencies {
+                implementation project()
+                implementation gradleTestKit()
+            }
+        }
+    }
+}
+
 publishing {
     repositories {
         maven gradleutils.getPublishingForgeMaven(rootProject.file('../repo'))
@@ -105,4 +117,24 @@ publishing {
             }
         }
     }
+}
+
+// We are not a module but unifying the sourcesets fixes pluginUnderTestMetadata producing the correct paths
+sourceSets.each { sourceSet ->
+    sourceSet.output.resourcesDir = sourceSet.java.destinationDirectory = layout.projectDirectory.dir("bin/$sourceSet.name")
+}
+
+// We need to put the plugin metadata file on the resource path, because eclipse doesn't use gradle's build folder
+sourceSets.functionalTest.resources.srcDirs += [ 'src/functionalTest/generated/' ]
+tasks.named('pluginUnderTestMetadata') {
+    outputDirectory = file('src/functionalTest/generated/')
+}
+// We need to write the plugin info so that eclipse can find it without invoking gradle
+sourceSets.main.resources.srcDirs += [ 'src/main/generated/' ]
+tasks.named('pluginDescriptors') {
+    outputDirectory = file('src/main/generated/META-INF/gradle-plugins/')
+}
+
+eclipse {
+    synchronizationTasks pluginUnderTestMetadata, pluginDescriptors
 }
