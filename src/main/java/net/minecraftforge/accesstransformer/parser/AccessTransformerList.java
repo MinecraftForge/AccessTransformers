@@ -61,7 +61,7 @@ public class AccessTransformerList {
         int lineIndex = -1;
         for (String line : lines) {
             lineIndex++;
-            List<String> tokens = tokenize(line);
+            List<String> tokens = tokenize(line.trim());
             if (tokens.isEmpty())
                 continue;
 

@@ -30,3 +30,6 @@
 /out.log
 /**/logs/
 at-test/aggregate-test-results.html
+/at-gradle/.idea/
+/at-gradle/src/functionalTest/generated/
+/at-gradle/src/main/generated/
