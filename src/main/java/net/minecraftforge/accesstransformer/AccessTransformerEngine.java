@@ -70,4 +70,10 @@ public enum AccessTransformerEngine {
     public void acceptNaming(INameHandler handler) {
         this.masterList.setNameHandler(handler);
     }
+
+    Map<String, AccessTransformer> getTransformers(Type classType, TargetType targetType) {
+        final Map<TargetType, Map<String,AccessTransformer>> transformersForTarget = masterList.getTransformersForTarget(classType);
+        Map<String, AccessTransformer> ret = transformersForTarget.get(targetType);
+        return ret == null ? Collections.emptyMap() : ret;
+    }
 }

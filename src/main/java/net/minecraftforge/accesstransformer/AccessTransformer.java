@@ -34,6 +34,14 @@ public class AccessTransformer {
         return (Target<T>)this.memberTarget;
     }
 
+    Modifier getTargetAccess() {
+        return this.targetAccess;
+    }
+
+    FinalState getTargetFinalState() {
+        return this.targetFinalState;
+    }
+
     public AccessTransformer mergeStates(final AccessTransformer at2, final String resourceName) {
         final Modifier newModifier = Modifier.values()[Math.min(this.targetAccess.ordinal(), at2.targetAccess.ordinal())];
         final FinalState newFinalState = FinalState.values()[this.targetFinalState.ordinal() | at2.targetFinalState.ordinal()];

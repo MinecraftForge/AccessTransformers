@@ -134,9 +134,32 @@ public class TransformerProcessor {
                                     final ClassNode cn = new ClassNode();
                                     classReader.accept(cn, 0);
                                     final Type type = Type.getType('L'+cn.name.replaceAll("\\.","/")+';');
+
+                                    boolean write = false;
                                     if (AccessTransformerEngine.INSTANCE.handlesClass(type)) {
                                         LOGGER.debug(AXFORM_MARKER,"Transforming class {}", type);
-                                        AccessTransformerEngine.INSTANCE.transform(cn, type);
+                                        write = AccessTransformerEngine.INSTANCE.transform(cn, type);
+                                    }
+
+                                    // Deal with issue in older fernflower versions that don't prioritize self-access levels
+                                    // By updating all inner class references
+                                    if (cn.innerClasses != null) {
+                                        for (InnerClassNode inner : cn.innerClasses) {
+                                            final Type innerType = Type.getType('L'+inner.name.replaceAll("\\.","/")+';');
+                                            final Map<String, AccessTransformer> transformers = AccessTransformerEngine.INSTANCE.getTransformers(innerType, TargetType.CLASS);
+
+                                            final int start = inner.access;
+                                            for (AccessTransformer at : transformers.values())
+                                                inner.access = at.getTargetAccess().mergeWith(at.getTargetFinalState().mergeWith(inner.access));
+
+                                            if (!write && start != inner.access) {
+                                                LOGGER.debug(AXFORM_MARKER,"Transforming class {}", type);
+                                                write = true;
+                                            }
+                                        }
+                                    }
+
+                                    if (write) {
                                         ClassWriter cw = new ClassWriter(Opcodes.ASM5);
                                         cn.accept(cw);
                                         Files.write(outPath, cw.toByteArray());
