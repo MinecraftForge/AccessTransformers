@@ -5,7 +5,6 @@
 package net.minecraftforge.accesstransformers.gradle;
 
 import org.gradle.api.Action;
-import org.jetbrains.annotations.ApiStatus;
 
 /// The extension interface for the AccessTransformers Gradle plugin.
 ///
